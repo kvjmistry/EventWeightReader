@@ -206,12 +206,12 @@ void EventWeightReader::endJob()
     std::cout << DiscardProcess[i] << std::endl;
   }
 
-a
+
   // Open a file with the weights 
   std::ofstream Genie_Weights_file;
   Genie_Weights_file.open("Genie_weights.txt");
   for (unsigned int i =0; i < WeightList.size(); i++ ){
-     if (WeightList[i] != 1) Genie_Weights_file << WeightList[i] << "\n"; // Put the non-zero weights into a text file. 
+     if (WeightList[i] != 1.0) Genie_Weights_file << WeightList[i] << "\n"; // Put the non-zero weights into a text file. 
   }
 
 
