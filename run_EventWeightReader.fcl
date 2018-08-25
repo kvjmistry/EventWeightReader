@@ -22,6 +22,7 @@ services:
 source:
 {
   module_type: RootInput
+  inputCommands: [ "keep *", "drop sumdata::RunData_*_*_*" ]
   maxEvents:  -1        # Number of events to create
 }
 

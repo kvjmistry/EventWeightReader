@@ -75,15 +75,17 @@ private:
 
   // Declare member data here.
   TTree* DataTree;
-  TTree* KeepTree;
-  std::map<std::string, std::vector<double> > weights;
+  //TTree* KeepTree;
+  std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight)
   int run, subrun, evt;
 
   TH1D *hInterestingWeights;
   TH1D *hDiscardWeights;
 
-  std::vector<std::string> KeepProcess;
-  std::vector<std::string> DiscardProcess;
+  std::vector<double> WeightList; // List of all weights in one vector. 
+
+  std::vector<std::string> KeepProcess; // Genie processes that are non-zero
+  std::vector<std::string> DiscardProcess; // Processes that have no effect. 
 
 
 };
@@ -106,28 +108,33 @@ void EventWeightReader::beginJob()
 
   // Create the TTree and add relavent branches
 	DataTree = tfs->make<TTree>("EventTree","EventTree"); 
-  KeepTree = tfs->make<TTree>("KeepTree","KeepTree"); 
+  //KeepTree = tfs->make<TTree>("KeepTree","KeepTree"); 
 
   // Event Information
 	DataTree->Branch("run", &run);
 	DataTree->Branch("subrun",&subrun);
   DataTree->Branch("event",&evt);
   DataTree->Branch("weights",&weights);
-  KeepTree->Branch("keep",&KeepProcess);
-  KeepTree->Branch("discard",&DiscardProcess);
+  //KeepTree->Branch("keep",&KeepProcess);
+  //KeepTree->Branch("discard",&DiscardProcess);
 
 }
 void EventWeightReader::analyze(art::Event const & e)
 {
   // Implementation of required member function here.
-  // Determine event ID
+  // Determine event ID, run and subrun for tree
   run = e.id().run();
   subrun = e.id().subRun();
   evt = e.id().event();
   
-  TString GenieNames;
+  TString GenieNames;// Temporary 
 
   auto GenieEW_Handle = e.getValidHandle<std::vector<evwgh::MCEventWeight>>("mcweight"); // Request the mcweight data product
+
+  if(GenieEW_Handle.isValid()) {
+      std::cout << "[Analyze] GenieEW_Handle is valid" << std::endl; 
+       //exit(1);
+  }
 
   std::vector<evwgh::MCEventWeight> const& GenieEWvec(*GenieEW_Handle);  
 
@@ -136,13 +143,14 @@ void EventWeightReader::analyze(art::Event const & e)
     weights = GenieEW.fWeight;
   }
   
-  // Loop over te weights and print their name and values. 
+  // Loop over the weights and print their name and values. 
   for (auto const& it : weights) {
     GenieNames = it.first; 
     std::cout << "\n" << GenieNames << std::endl;
     
     for (unsigned int i = 0; i < it.second.size(); i++){
       std::cout << it.second[i] << "\t";
+      WeightList.push_back(it.second[i]); // Add weights to a vector
 
       // Fill histograms whcih have non 1 and 1 values 
       if (it.second[i] == 1){
@@ -172,9 +180,6 @@ void EventWeightReader::analyze(art::Event const & e)
     
   }
 
-  
-
-
 
 DataTree->Fill();
 
@@ -200,6 +205,17 @@ void EventWeightReader::endJob()
   for (unsigned int i = 0; i< DiscardProcess.size(); i++){
     std::cout << DiscardProcess[i] << std::endl;
   }
+
+a
+  // Open a file with the weights 
+  std::ofstream Genie_Weights_file;
+  Genie_Weights_file.open("Genie_weights.txt");
+  for (unsigned int i =0; i < WeightList.size(); i++ ){
+     if (WeightList[i] != 1) Genie_Weights_file << WeightList[i] << "\n"; // Put the non-zero weights into a text file. 
+  }
+
+
+
 }
 
 DEFINE_ART_MODULE(EventWeightReader)
