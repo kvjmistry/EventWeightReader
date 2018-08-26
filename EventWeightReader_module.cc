@@ -74,19 +74,22 @@ public:
 private:
 
   // Declare member data here.
-  TTree* DataTree;
-  //TTree* KeepTree;
-  std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight)
-  int run, subrun, evt;
+  // TTree* DataTree;
+  // TTree* KeepTree;
+  std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight Vector in each universe)
+  // int run, subrun, evt;
 
-  TH1D *hInterestingWeights;
-  TH1D *hDiscardWeights;
+  // TH1D *hInterestingWeights;
+  // TH1D *hDiscardWeights;
 
-  std::vector<double> WeightList; // List of all weights in one vector. 
+  std::vector<double> WeightList;           // List of all weights in one vector. 
 
-  std::vector<std::string> KeepProcess; // Genie processes that are non-zero
-  std::vector<std::string> DiscardProcess; // Processes that have no effect. 
+  std::vector<std::string> KeepProcess;     // Genie processes that are non-zero
+  std::vector<std::string> DiscardProcess;  // Processes that have no effect. 
 
+  int Iterations{0};                        // Number of times looped event to see how quickly module is running
+
+  std::ofstream Genie_Weights_file_wNames;  // file with genie processes and names
 
 };
 
@@ -101,97 +104,99 @@ void EventWeightReader::beginJob()
 {
   // Implementation of optional member function here.
   // Access ART's TFileService, which will handle histograms/trees/etc.
-	art::ServiceHandle<art::TFileService> tfs;
+	// art::ServiceHandle<art::TFileService> tfs;
 
-  hInterestingWeights = 		tfs->make<TH1D>("hInterestingWeights", "Weights to Keep",	20,  0., 10.);
-  hDiscardWeights     = 		tfs->make<TH1D>("hDiscardWeights",     "Weights to Discard",		20  ,0., 10.);
+  // hInterestingWeights = 		tfs->make<TH1D>("hInterestingWeights", "Weights to Keep",	20,  0., 10.);
+  // hDiscardWeights     = 		tfs->make<TH1D>("hDiscardWeights",     "Weights to Discard",		20  ,0., 10.);
 
   // Create the TTree and add relavent branches
-	DataTree = tfs->make<TTree>("EventTree","EventTree"); 
-  //KeepTree = tfs->make<TTree>("KeepTree","KeepTree"); 
+	// DataTree = tfs->make<TTree>("EventTree","EventTree"); 
+  // KeepTree = tfs->make<TTree>("KeepTree","KeepTree"); 
 
   // Event Information
-	DataTree->Branch("run", &run);
-	DataTree->Branch("subrun",&subrun);
-  DataTree->Branch("event",&evt);
-  DataTree->Branch("weights",&weights);
-  //KeepTree->Branch("keep",&KeepProcess);
-  //KeepTree->Branch("discard",&DiscardProcess);
+	// DataTree->Branch("run", &run);
+	// DataTree->Branch("subrun",&subrun);
+  // DataTree->Branch("event",&evt);
+  // DataTree->Branch("weights",&weights);
+  // KeepTree->Branch("keep",&KeepProcess);
+  // KeepTree->Branch("discard",&DiscardProcess);
 
 }
 void EventWeightReader::analyze(art::Event const & e)
 {
   // Implementation of required member function here.
   // Determine event ID, run and subrun for tree
-  run = e.id().run();
-  subrun = e.id().subRun();
-  evt = e.id().event();
+  // run = e.id().run();
+  // subrun = e.id().subRun();
+  // evt = e.id().event();
   
-  TString GenieNames;// Temporary 
+  TString GenieNames; // Temp string for displaying genie names
+
+  std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
+  std::cout << "Iteration\t" << Iterations<< std::endl;
+  std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
+  Iterations++;
 
   auto GenieEW_Handle = e.getValidHandle<std::vector<evwgh::MCEventWeight>>("mcweight"); // Request the mcweight data product
 
   if(GenieEW_Handle.isValid()) {
       std::cout << "[Analyze] GenieEW_Handle is valid" << std::endl; 
-       //exit(1);
   }
 
   std::vector<evwgh::MCEventWeight> const& GenieEWvec(*GenieEW_Handle);  
 
-  for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) {
-    // Grab the weights 
-    weights = GenieEW.fWeight;
+  for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) { // Loop over weight handles.
+    
+    weights = GenieEW.fWeight; // Grab the weights 
   }
   
   // Loop over the weights and print their name and values. 
   for (auto const& it : weights) {
     GenieNames = it.first; 
-    std::cout << "\n" << GenieNames << std::endl;
+    //std::cout << "\n" << GenieNames << std::endl;
     
-    for (unsigned int i = 0; i < it.second.size(); i++){
-      std::cout << it.second[i] << "\t";
-      WeightList.push_back(it.second[i]); // Add weights to a vector
+    // Loop over each universe
+    for (unsigned int i = 0; i < it.second.size(); i++){ 
+      
+      //std::cout << it.second[i] << "\t";
+      WeightList.push_back(it.second[i]); // Add weights to a vector if they are not 1.
 
       // Fill histograms whcih have non 1 and 1 values 
-      if (it.second[i] == 1){
-        hDiscardWeights->Fill(GenieNames,1); // Reject
+      if (it.second[i] == 1.0){
+        
+        // hDiscardWeights->Fill(GenieNames,1); // Reject
         
         // look to see if already found string in vector
         if (std::find(DiscardProcess.begin(), DiscardProcess.end(), it.first) != DiscardProcess.end()){}
-        else {
-          DiscardProcess.push_back(it.first);
-        }
-      }
-
-      else {
-        hInterestingWeights->Fill(GenieNames,1); // Pass
-        
-        // look to see if already found string in vector
-        if (std::find(KeepProcess.begin(), KeepProcess.end(), it.first) != KeepProcess.end()){}
-        else {
-          KeepProcess.push_back(it.first);
-          }
-         
+        else { DiscardProcess.push_back(it.first); }
       
-      }// end else 
+      } // End discard condition
+      
+      else {
+        
+        // hInterestingWeights->Fill(GenieNames,1); // Pass
+        
+        if (std::find(KeepProcess.begin(), KeepProcess.end(), it.first) != KeepProcess.end()){} // look to see if already found string in vector
+        else { KeepProcess.push_back(it.first); }
+           
+      } // end Keep condition
 
-    } // end loop over weights. 
-    std::cout << std::endl;
+    } // loop over each universe
     
-  }
+    // std::cout << std::endl;
+    
+  } // END loop over weights 
 
-
-DataTree->Fill();
+// DataTree->Fill();
 
 }
-
-
 
 void EventWeightReader::endJob()
 {
   // Implementation of optional member function here.
-  //KeepTree->Fill();
+  // KeepTree->Fill();
 
+  // Print out which pricesses to keep and discard
   std::cout << "\n=======================" << std::endl;
   std::cout << "Keep genie Processes\n" << std::endl;
   std::cout << "=======================\n" << std::endl;
@@ -210,11 +215,10 @@ void EventWeightReader::endJob()
   // Open a file with the weights 
   std::ofstream Genie_Weights_file;
   Genie_Weights_file.open("Genie_weights.txt");
-  for (unsigned int i =0; i < WeightList.size(); i++ ){
-     if (WeightList[i] != 1.0) Genie_Weights_file << WeightList[i] << "\n"; // Put the non-zero weights into a text file. 
+
+  for (unsigned int i = 0; i < WeightList.size(); i++ ){
+     Genie_Weights_file << WeightList[i] << "\n"; // Put the weights into a text file. 
   }
-
-
 
 }
 

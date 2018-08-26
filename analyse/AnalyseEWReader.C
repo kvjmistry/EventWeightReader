@@ -60,7 +60,7 @@ void AnalyseEWReader() {
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++	
 	
 	std::ifstream weightfile;
-	weightfile.open("Genie_weights.txt");
+	weightfile.open("Genie_weights_all_parameters.txt");
 	
     if (!weightfile.good()) {
 		// Print error message and exit
@@ -87,7 +87,7 @@ void AnalyseEWReader() {
 
 	double mc_xec_err;
 
-	for (unsigned int i = 0; i <WeightList.size(); i++ ){ // WeightList.size()
+	for (unsigned int i = 0; i < WeightList.size(); i++ ){ // WeightList.size()
 		//std::cout << WeightList[i] << std::endl;
         mc_xsec_weight = mc_xsec * WeightList[i]; 
 
@@ -120,7 +120,7 @@ void AnalyseEWReader() {
     double x_MC[2] = {0.9, 1.1};
 	double y_MC[2] = {4.83e-39,4.83e-39};
 	double ex_MC[2] = {0.0,0.0};
-	double ey_MC[2] = {1.0e-39,1.0e-39} ;
+	double ey_MC[2] = {mc_xec_err,mc_xec_err} ;
 
    
     TGraphErrors * MCxsec_graph = new TGraphErrors(2,x_MC ,y_MC , ex_MC, ey_MC);
@@ -154,8 +154,8 @@ void AnalyseEWReader() {
 	xsec_graph->Draw("*, same");
     
 	TLegend * leg = new TLegend();
-	leg->AddEntry(xsec_graph, "Data Cross Section");
-	leg->AddEntry(line, "GENIE");
+	leg->AddEntry(xsec_graph, "Data Cross Section", "l");
+	leg->AddEntry(line, "GENIE","l");
 	leg->Draw("SAME");
 
 	c_integrated->Print("plots/integrated_xsec.eps");
