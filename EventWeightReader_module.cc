@@ -70,7 +70,7 @@ public:
   // Selected optional functions.
   void beginJob() override;
   void endJob() override;
-  void AddWeights(std::vector<double> N, int Iterations, int Universes);
+  void AddWeights(std::vector<double> N, int Iterations, int Universes, art::Event const & e);
   
 
 private:
@@ -109,7 +109,8 @@ private:
 };
 
 // A function that loops over all the parameter weights and universes and re-weights the desired events. 
-EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Universes){
+void EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Universes, art::Event const & e){
+  TString GenieNames; // Temp string for displaying genie names
 
   auto GenieEW_Handle = e.getValidHandle<std::vector<evwgh::MCEventWeight>>("mcweight"); // Request the mcweight data product
 
@@ -125,8 +126,9 @@ EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Univers
   }
 
   // Initialise the size of the counter if it is the first event loop. 
-  if (Iteration == 1) { N.resize( weights.size() * Universes ) }; // Resize to number of parameters * Universes. 
+  if (Iterations == 1) { N.resize( weights.size() * Universes ); } // Resize to number of parameters * Universes. 
   
+  int loop_counter{0};
   // Loop over the weights and print their name and values. 
   for (auto const& it : weights) {
     GenieNames = it.first; 
@@ -138,7 +140,7 @@ EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Univers
       //std::cout << it.second[i] << "\t";
       WeightList.push_back(it.second[i]); // Add weights to a vector
 
-      N[it] += it.second[i]; // Add weight to vector of counters.
+      N[ loop_counter + i ] += it.second[i]; // Add weight to vector of counters.
 
       // Fill histograms and fill vectors which have non 1 and 1 values 
       if (it.second[i] == 1.0){
@@ -163,7 +165,7 @@ EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Univers
     } // loop over each universe
     
     // std::cout << std::endl;
-    
+    loop_counter+=Universes;
   } // END loop over weights 
 
 
@@ -207,7 +209,7 @@ void EventWeightReader::analyze(art::Event const & e)
   subrun = e.id().subRun();
   evt = e.id().event();
   
-  TString GenieNames; // Temp string for displaying genie names
+  
 
   std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
   std::cout << "Iteration\t" << Iterations<< std::endl;
@@ -222,7 +224,7 @@ void EventWeightReader::analyze(art::Event const & e)
 	fN_gen.open("filename_events.txt");
 	
   if (!fN_gen.good()) { // Check if the file opened correctly
-		cerr << "Error: Gen file could not be opened" << endl;
+		std::cerr << "Error: Gen file could not be opened" << std::endl;
     exit(1);
 	}
 
@@ -240,11 +242,11 @@ void EventWeightReader::analyze(art::Event const & e)
   	fN_sig.open("filename_events.txt");
 	
     if (!fN_sig.good()) { // Check if the file opened correctly
-		cerr << "Error: sig file could not be opened" << endl;
+		std::cerr << "Error: sig file could not be opened" << std::endl;
     exit(1);
 	  }
 
-    double temp{0};
+    temp = 0;
 
     if (fN_sig.is_open()) {
       while ( !fN_sig.eof()) {
@@ -259,12 +261,12 @@ void EventWeightReader::analyze(art::Event const & e)
   if ( std::find( N_gen_evt.begin(), N_gen_evt.end(), evt) != N_gen_evt.end()){
     
     // Found event in the N_gen vector and so add weights for this event
-    AddWeights(N_gen, Iterations, Universes);
+    AddWeights(N_gen, Iterations, Universes, e);
   }
   else if ( std::find( N_sig_evt.begin(), N_sig_evt.end(), evt) != N_sig_evt.end()){
     
     // Found event in the N_sig vector nd so add weights for this event
-    AddWeights(N_sig, Iterations, Universes);
+    AddWeights(N_sig, Iterations, Universes, e);
 
   }
 
