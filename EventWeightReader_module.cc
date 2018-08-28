@@ -70,6 +70,8 @@ public:
   // Selected optional functions.
   void beginJob() override;
   void endJob() override;
+  void AddWeights(std::vector<double> N, int Iterations, int Universes);
+  
 
 private:
 
@@ -77,7 +79,7 @@ private:
   // TTree* DataTree;
   // TTree* KeepTree;
   std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight Vector in each universe)
-  // int run, subrun, evt;
+  int run, subrun, evt;
 
   // TH1D *hInterestingWeights;
   // TH1D *hDiscardWeights;
@@ -89,9 +91,84 @@ private:
 
   int Iterations{0};                        // Number of times looped event to see how quickly module is running
 
+  const int Universes{10};                  // The number of universes simulated
+
   std::ofstream Genie_Weights_file_wNames;  // file with genie processes and names
 
+  // Vectors for cross section calculation. 
+  std::vector<double> N_gen, N_sig, MC_x_sec;
+  std::vector<int> N_gen_evt, N_sig_evt; // vectors of event numbers for signal, selected and gen
+
+  // Flux
+  const double flux{4.19844e+10};
+
+  // Num Targets
+  const double targets{3.50191e+31};
+
+
 };
+
+// A function that loops over all the parameter weights and universes and re-weights the desired events. 
+EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Universes){
+
+  auto GenieEW_Handle = e.getValidHandle<std::vector<evwgh::MCEventWeight>>("mcweight"); // Request the mcweight data product
+
+  if(GenieEW_Handle.isValid()) {
+      std::cout << "[Analyze] GenieEW_Handle is valid" << std::endl; 
+  }
+
+  std::vector<evwgh::MCEventWeight> const& GenieEWvec(*GenieEW_Handle);
+
+  for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) { // Loop over weight handles.
+    
+    weights = GenieEW.fWeight; // Grab the weights 
+  }
+
+  // Initialise the size of the counter if it is the first event loop. 
+  if (Iteration == 1) { N.resize( weights.size() * Universes ) }; // Resize to number of parameters * Universes. 
+  
+  // Loop over the weights and print their name and values. 
+  for (auto const& it : weights) {
+    GenieNames = it.first; 
+    //std::cout << "\n" << GenieNames << std::endl;
+    
+    // Loop over each universe
+    for (unsigned int i = 0; i < it.second.size(); i++){ 
+      
+      //std::cout << it.second[i] << "\t";
+      WeightList.push_back(it.second[i]); // Add weights to a vector
+
+      N[it] += it.second[i]; // Add weight to vector of counters.
+
+      // Fill histograms and fill vectors which have non 1 and 1 values 
+      if (it.second[i] == 1.0){
+        
+        // hDiscardWeights->Fill(GenieNames,1); // Reject
+        
+        // look to see if already found string in vector
+        if (std::find(DiscardProcess.begin(), DiscardProcess.end(), it.first) != DiscardProcess.end()){}
+        else { DiscardProcess.push_back(it.first); }
+      
+      } // End discard condition
+      
+      else {
+        
+        // hInterestingWeights->Fill(GenieNames,1); // Pass
+        
+        if (std::find(KeepProcess.begin(), KeepProcess.end(), it.first) != KeepProcess.end()){} // look to see if already found string in vector
+        else { KeepProcess.push_back(it.first); }
+           
+      } // end Keep condition
+
+    } // loop over each universe
+    
+    // std::cout << std::endl;
+    
+  } // END loop over weights 
+
+
+}
+
 
 
 EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p)
@@ -125,10 +202,10 @@ void EventWeightReader::beginJob()
 void EventWeightReader::analyze(art::Event const & e)
 {
   // Implementation of required member function here.
-  // Determine event ID, run and subrun for tree
-  // run = e.id().run();
-  // subrun = e.id().subRun();
-  // evt = e.id().event();
+  // Determine event ID, run and subrun 
+  run = e.id().run();
+  subrun = e.id().subRun();
+  evt = e.id().event();
   
   TString GenieNames; // Temp string for displaying genie names
 
@@ -137,55 +214,59 @@ void EventWeightReader::analyze(art::Event const & e)
   std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
   Iterations++;
 
-  auto GenieEW_Handle = e.getValidHandle<std::vector<evwgh::MCEventWeight>>("mcweight"); // Request the mcweight data product
 
-  if(GenieEW_Handle.isValid()) {
-      std::cout << "[Analyze] GenieEW_Handle is valid" << std::endl; 
-  }
-
-  std::vector<evwgh::MCEventWeight> const& GenieEWvec(*GenieEW_Handle);  
-
-  for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) { // Loop over weight handles.
-    
-    weights = GenieEW.fWeight; // Grab the weights 
-  }
+  // Load in the file containing the event number for Signal_Generated, N_gen or Signal_Selected N_sig
   
-  // Loop over the weights and print their name and values. 
-  for (auto const& it : weights) {
-    GenieNames = it.first; 
-    //std::cout << "\n" << GenieNames << std::endl;
-    
-    // Loop over each universe
-    for (unsigned int i = 0; i < it.second.size(); i++){ 
-      
-      //std::cout << it.second[i] << "\t";
-      WeightList.push_back(it.second[i]); // Add weights to a vector if they are not 1.
+  // ++++++++++++++++++++ N_gen +++++++++++++++++++++++++++++
+  std::ifstream fN_gen;
+	fN_gen.open("filename_events.txt");
+	
+  if (!fN_gen.good()) { // Check if the file opened correctly
+		cerr << "Error: Gen file could not be opened" << endl;
+    exit(1);
+	}
 
-      // Fill histograms whcih have non 1 and 1 values 
-      if (it.second[i] == 1.0){
-        
-        // hDiscardWeights->Fill(GenieNames,1); // Reject
-        
-        // look to see if already found string in vector
-        if (std::find(DiscardProcess.begin(), DiscardProcess.end(), it.first) != DiscardProcess.end()){}
-        else { DiscardProcess.push_back(it.first); }
-      
-      } // End discard condition
-      
-      else {
-        
-        // hInterestingWeights->Fill(GenieNames,1); // Pass
-        
-        if (std::find(KeepProcess.begin(), KeepProcess.end(), it.first) != KeepProcess.end()){} // look to see if already found string in vector
-        else { KeepProcess.push_back(it.first); }
-           
-      } // end Keep condition
+    double temp{0};
 
-    } // loop over each universe
+    if (fN_gen.is_open()) {
+      while ( !fN_gen.eof()) {
+        fN_gen >> temp;
+        N_gen_evt.push_back(temp);
+    	}
+	    fN_gen.close();
+  	}
+    // ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
+    std::ifstream fN_sig;
+  	fN_sig.open("filename_events.txt");
+	
+    if (!fN_sig.good()) { // Check if the file opened correctly
+		cerr << "Error: sig file could not be opened" << endl;
+    exit(1);
+	  }
+
+    double temp{0};
+
+    if (fN_sig.is_open()) {
+      while ( !fN_sig.eof()) {
+        fN_sig >> temp;
+        N_sig_evt.push_back(temp);
+    	}
+	    fN_sig.close();
+  	}
+
+  
+  // Choose wheather to populate which varible depending on the event number
+  if ( std::find( N_gen_evt.begin(), N_gen_evt.end(), evt) != N_gen_evt.end()){
     
-    // std::cout << std::endl;
+    // Found event in the N_gen vector and so add weights for this event
+    AddWeights(N_gen, Iterations, Universes);
+  }
+  else if ( std::find( N_sig_evt.begin(), N_sig_evt.end(), evt) != N_sig_evt.end()){
     
-  } // END loop over weights 
+    // Found event in the N_sig vector nd so add weights for this event
+    AddWeights(N_sig, Iterations, Universes);
+
+  }
 
 // DataTree->Fill();
 
@@ -212,13 +293,21 @@ void EventWeightReader::endJob()
   }
 
 
-  // Open a file with the weights 
-  std::ofstream Genie_Weights_file;
-  Genie_Weights_file.open("Genie_weights.txt");
+  // Open a file with the new x section values in
+  std::ofstream MC_weighted_xsec_file;
+  MC_weighted_xsec_file.open("MC_weighted_xsec_file.txt");
+  
+  MC_x_sec.resize(N_gen.size()); // Resize
 
-  for (unsigned int i = 0; i < WeightList.size(); i++ ){
-     Genie_Weights_file << WeightList[i] << "\n"; // Put the weights into a text file. 
+  // Calculate the New Cross section. 
+  for (unsigned int i{0}; i < N_gen.size(); i++){
+
+    MC_x_sec[i] =  N_gen[i] / ( flux * targets);
+    std::cout << "New X-sections [10^-39 cm^2]\t" << MC_x_sec[i] << std::endl;
+
+    MC_weighted_xsec_file << MC_x_sec[i] << "\n"; // Put the new cross sections into a text file. 
   }
+
 
 }
 
