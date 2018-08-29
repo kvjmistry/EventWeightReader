@@ -48,6 +48,9 @@
 #include "TF1.h" 
 #include "TMath.h"
 
+#include <iostream>
+#include <fstream>
+
 
 class EventWeightReader;
 
@@ -71,7 +74,7 @@ public:
   void beginJob() override;
   void endJob() override;
   void AddWeights(std::vector<double> N, int Iterations, int Universes, art::Event const & e);
-  
+  void ReadEvents(const char *filename, std::vector<int> N_evt );
 
 private:
 
@@ -96,15 +99,14 @@ private:
   std::ofstream Genie_Weights_file_wNames;  // file with genie processes and names
 
   // Vectors for cross section calculation. 
-  std::vector<double> N_gen, N_sig, MC_x_sec;
-  std::vector<int> N_gen_evt, N_sig_evt; // vectors of event numbers for signal, selected and gen
+  std::vector<double> N_gen, N_sig, N_bkd, N_sel ,MC_x_sec;
+  std::vector<int> N_gen_evt, N_sig_evt, N_bkd_evt, N_sel_evt; // Vectors of event numbers for generated, signal, background, selected
 
   // Flux
   const double flux{4.19844e+10};
 
   // Num Targets
   const double targets{3.50191e+31};
-
 
 };
 
@@ -171,6 +173,32 @@ void EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Un
 
 }
 
+// Function that reads in the event numbers from a text file and adds those event numbers to a vector. 
+void EventWeightReader::ReadEvents(const char *filename, std::vector<int> N_evt ){
+	
+  std::ifstream fileIN; 
+
+  fileIN.open(filename); // Open the file
+	
+  if (!fileIN.good()) { // Check if the file opened correctly
+		std::cerr << "Error: file:\t" << filename <<"\tcould not be opened" << std::endl;
+    exit(1);
+	}
+
+    double temp{0}; // Use a temp var to get the values and push back
+
+    if (fileIN.is_open()) { 
+      
+      while ( !fileIN.eof()) { // loop over lines in file
+        
+        fileIN >> temp;        // Add number to temp var
+        N_evt.push_back(temp);
+    	}
+	    
+      fileIN.close();
+  	}
+
+}
 
 
 EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p)
@@ -208,8 +236,6 @@ void EventWeightReader::analyze(art::Event const & e)
   run = e.id().run();
   subrun = e.id().subRun();
   evt = e.id().event();
-  
-  
 
   std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
   std::cout << "Iteration\t" << Iterations<< std::endl;
@@ -220,54 +246,52 @@ void EventWeightReader::analyze(art::Event const & e)
   // Load in the file containing the event number for Signal_Generated, N_gen or Signal_Selected N_sig
   
   // ++++++++++++++++++++ N_gen +++++++++++++++++++++++++++++
-  std::ifstream fN_gen;
-	fN_gen.open("filename_events.txt");
-	
-  if (!fN_gen.good()) { // Check if the file opened correctly
-		std::cerr << "Error: Gen file could not be opened" << std::endl;
-    exit(1);
-	}
+  
+  ReadEvents("Gen_events.txt", N_gen_evt ); 
 
-    double temp{0};
+  // ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
+  
+  ReadEvents("Sig_events.txt", N_sig_evt ); 
 
-    if (fN_gen.is_open()) {
-      while ( !fN_gen.eof()) {
-        fN_gen >> temp;
-        N_gen_evt.push_back(temp);
-    	}
-	    fN_gen.close();
-  	}
-    // ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
-    std::ifstream fN_sig;
-  	fN_sig.open("filename_events.txt");
-	
-    if (!fN_sig.good()) { // Check if the file opened correctly
-		std::cerr << "Error: sig file could not be opened" << std::endl;
-    exit(1);
-	  }
+  // ++++++++++++++++++++ N_sel +++++++++++++++++++++++++++++
+  
+  ReadEvents("Sel_events.txt", N_sel_evt ); 
 
-    temp = 0;
-
-    if (fN_sig.is_open()) {
-      while ( !fN_sig.eof()) {
-        fN_sig >> temp;
-        N_sig_evt.push_back(temp);
-    	}
-	    fN_sig.close();
-  	}
+  // ++++++++++++++++++++ N_bkd +++++++++++++++++++++++++++++
+  
+  ReadEvents("Bkd_events.txt", N_bkd_evt ); 
 
   
   // Choose wheather to populate which varible depending on the event number
+  
+  // ++++++++++++++++++++ N_gen +++++++++++++++++++++++++++++
   if ( std::find( N_gen_evt.begin(), N_gen_evt.end(), evt) != N_gen_evt.end()){
     
     // Found event in the N_gen vector and so add weights for this event
     AddWeights(N_gen, Iterations, Universes, e);
   }
+  // ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
   else if ( std::find( N_sig_evt.begin(), N_sig_evt.end(), evt) != N_sig_evt.end()){
     
-    // Found event in the N_sig vector nd so add weights for this event
+    // Found event in the N_sig vector and so add weights for this event
     AddWeights(N_sig, Iterations, Universes, e);
-
+  }
+  // ++++++++++++++++++++ N_sel +++++++++++++++++++++++++++++
+  else if ( std::find( N_sel_evt.begin(), N_sel_evt.end(), evt) != N_sel_evt.end()){
+    
+    // Found event in the N_sel vector and so add weights for this event
+    AddWeights(N_sel, Iterations, Universes, e);
+  }
+  // ++++++++++++++++++++ N_bkd +++++++++++++++++++++++++++++
+  else if ( std::find( N_bkd_evt.begin(), N_bkd_evt.end(), evt) != N_bkd_evt.end()){
+    
+    // Found event in the N_bkd vector and so add weights for this event
+    AddWeights(N_bkd, Iterations, Universes, e);
+  }
+  else {
+    std::cout << "\n+++++++++++++++++++++++" << std::endl;
+    std::cout << "Event not found..." << std::endl;
+    std::cout << "\n+++++++++++++++++++++++" << std::endl;
   }
 
 // DataTree->Fill();
@@ -303,9 +327,11 @@ void EventWeightReader::endJob()
 
   // Calculate the New Cross section. 
   for (unsigned int i{0}; i < N_gen.size(); i++){
+    double efficiency = N_sig[i] / N_gen[i]; 
+    std::cout << "+++++++\n efficiency\t" << efficiency << std::endl;
 
-    MC_x_sec[i] =  N_gen[i] / ( flux * targets);
-    std::cout << "New X-sections [10^-39 cm^2]\t" << MC_x_sec[i] << std::endl;
+    MC_x_sec[i] =  (N_sel[i] - N_bkd[i]) / ( efficiency * flux * targets);
+    std::cout << "New X-sections [10^-39 cm^2]\t" << MC_x_sec[i]/1e-39 << std::endl;
 
     MC_weighted_xsec_file << MC_x_sec[i] << "\n"; // Put the new cross sections into a text file. 
   }
