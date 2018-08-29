@@ -5,6 +5,11 @@
 //
 // Generated at Wed Aug 22 05:28:06 2018 by Krishan Mistry using cetskelgen
 // from cetlib version v1_21_00.
+//
+// This LArsoft module will read in a set of weights from a root file input
+// and apply these weights on an event by event basis. It will then calculate
+// a new value of the cross section and put the new values into a txt
+// file which can be used to calculate the systematic error.
 ////////////////////////////////////////////////////////////////////////
 
 // Default art includes
@@ -81,12 +86,13 @@ private:
   // Declare member data here.
   // TTree* DataTree;
   // TTree* KeepTree;
-  std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight Vector in each universe)
-  int run, subrun, evt;
 
   // TH1D *hInterestingWeights;
   // TH1D *hDiscardWeights;
 
+  int run, subrun, evt;
+  std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight Vector in each universe)
+  
   std::vector<double> WeightList;           // List of all weights in one vector. 
 
   std::vector<std::string> KeepProcess;     // Genie processes that are non-zero
@@ -95,8 +101,6 @@ private:
   int Iterations{0};                        // Number of times looped event to see how quickly module is running
 
   const int Universes{10};                  // The number of universes simulated
-
-  std::ofstream Genie_Weights_file_wNames;  // file with genie processes and names
 
   // Vectors for cross section calculation. 
   std::vector<double> N_gen, N_sig, N_bkd, N_sel ,MC_x_sec;
@@ -107,6 +111,9 @@ private:
 
   // Num Targets
   const double targets{3.50191e+31};
+
+  // DEBUG
+  bool DEBUG{true};
 
 };
 
@@ -167,9 +174,8 @@ void EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Un
     } // loop over each universe
     
     // std::cout << std::endl;
-    loop_counter+=Universes;
+    loop_counter += Universes;
   } // END loop over weights 
-
 
 }
 
@@ -200,7 +206,6 @@ void EventWeightReader::ReadEvents(const char *filename, std::vector<int> N_evt 
 
 }
 
-
 EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p)
   :
   EDAnalyzer(p)  // ,
@@ -228,23 +233,9 @@ void EventWeightReader::beginJob()
   // KeepTree->Branch("keep",&KeepProcess);
   // KeepTree->Branch("discard",&DiscardProcess);
 
-}
-void EventWeightReader::analyze(art::Event const & e)
-{
-  // Implementation of required member function here.
-  // Determine event ID, run and subrun 
-  run = e.id().run();
-  subrun = e.id().subRun();
-  evt = e.id().event();
-
-  std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
-  std::cout << "Iteration\t" << Iterations<< std::endl;
-  std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
-  Iterations++;
-
-
   // Load in the file containing the event number for Signal_Generated, N_gen or Signal_Selected N_sig
-  
+  if (DEBUG) std::cout << "\n Now reading in event files!" << std::endl;
+
   // ++++++++++++++++++++ N_gen +++++++++++++++++++++++++++++
   
   ReadEvents("Gen_events.txt", N_gen_evt ); 
@@ -261,30 +252,53 @@ void EventWeightReader::analyze(art::Event const & e)
   
   ReadEvents("Bkd_events.txt", N_bkd_evt ); 
 
-  
+  if (DEBUG) std::cout << "\n Finished reading in event files!" << std::endl;
+
+}
+void EventWeightReader::analyze(art::Event const & e)
+{
+  // Implementation of required member function here.
+  // Determine event ID, run and subrun 
+  run =     e.id().run();
+  subrun =  e.id().subRun();
+  evt =     e.id().event();
+
+  std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
+  std::cout << "Iteration\t" << Iterations<< std::endl;
+  std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
+  Iterations++;
+
   // Choose wheather to populate which varible depending on the event number
-  
+
   // ++++++++++++++++++++ N_gen +++++++++++++++++++++++++++++
   if ( std::find( N_gen_evt.begin(), N_gen_evt.end(), evt) != N_gen_evt.end()){
     
+    if (DEBUG) std::cout << "Matched a Generated Event\t" << std::endl;
+
     // Found event in the N_gen vector and so add weights for this event
     AddWeights(N_gen, Iterations, Universes, e);
-  }
-  // ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
-  else if ( std::find( N_sig_evt.begin(), N_sig_evt.end(), evt) != N_sig_evt.end()){
-    
-    // Found event in the N_sig vector and so add weights for this event
-    AddWeights(N_sig, Iterations, Universes, e);
   }
   // ++++++++++++++++++++ N_sel +++++++++++++++++++++++++++++
   else if ( std::find( N_sel_evt.begin(), N_sel_evt.end(), evt) != N_sel_evt.end()){
     
+    if (DEBUG) std::cout << "Matched a Selected Event\t" << std::endl;
+
     // Found event in the N_sel vector and so add weights for this event
     AddWeights(N_sel, Iterations, Universes, e);
+  }
+  // ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
+  else if ( std::find( N_sig_evt.begin(), N_sig_evt.end(), evt) != N_sig_evt.end()){
+    
+    if (DEBUG) std::cout << "Matched a Signal Selected Event\t" << std::endl;
+
+    // Found event in the N_sig vector and so add weights for this event
+    AddWeights(N_sig, Iterations, Universes, e);
   }
   // ++++++++++++++++++++ N_bkd +++++++++++++++++++++++++++++
   else if ( std::find( N_bkd_evt.begin(), N_bkd_evt.end(), evt) != N_bkd_evt.end()){
     
+    if (DEBUG) std::cout << "Matched a Background Selected Event\t" << std::endl;
+
     // Found event in the N_bkd vector and so add weights for this event
     AddWeights(N_bkd, Iterations, Universes, e);
   }
@@ -328,14 +342,13 @@ void EventWeightReader::endJob()
   // Calculate the New Cross section. 
   for (unsigned int i{0}; i < N_gen.size(); i++){
     double efficiency = N_sig[i] / N_gen[i]; 
-    std::cout << "+++++++\n efficiency\t" << efficiency << std::endl;
+    if (DEBUG) std::cout << "+++++++\n efficiency\t" << efficiency << std::endl;
 
     MC_x_sec[i] =  (N_sel[i] - N_bkd[i]) / ( efficiency * flux * targets);
-    std::cout << "New X-sections [10^-39 cm^2]\t" << MC_x_sec[i]/1e-39 << std::endl;
+    if (DEBUG) std::cout << "New X-sections [10^-39 cm^2]\t" << MC_x_sec[i]/1e-39 << std::endl;
 
     MC_weighted_xsec_file << MC_x_sec[i] << "\n"; // Put the new cross sections into a text file. 
   }
-
 
 }
 
