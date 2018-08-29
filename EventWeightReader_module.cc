@@ -84,12 +84,6 @@ public:
 private:
 
   // Declare member data here.
-  // TTree* DataTree;
-  // TTree* KeepTree;
-
-  // TH1D *hInterestingWeights;
-  // TH1D *hDiscardWeights;
-
   int run, subrun, evt;
   std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight Vector in each universe)
   
@@ -138,12 +132,14 @@ void EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Un
   if (Iterations == 1) { N.resize( weights.size() * Universes ); } // Resize to number of parameters * Universes. 
   
   int loop_counter{0};
-  // Loop over the weights and print their name and values. 
+
+  // Loop over the parameter models . 
   for (auto const& it : weights) {
+    
     GenieNames = it.first; 
     //std::cout << "\n" << GenieNames << std::endl;
     
-    // Loop over each universe
+    // Loop over each universe for a parameter
     for (unsigned int i = 0; i < it.second.size(); i++){ 
       
       //std::cout << it.second[i] << "\t";
@@ -151,10 +147,8 @@ void EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Un
 
       N[ loop_counter + i ] += it.second[i]; // Add weight to vector of counters.
 
-      // Fill histograms and fill vectors which have non 1 and 1 values 
+      // Fill vectors which have non 1 and 1 values to see what processes we can discard. 
       if (it.second[i] == 1.0){
-        
-        // hDiscardWeights->Fill(GenieNames,1); // Reject
         
         // look to see if already found string in vector
         if (std::find(DiscardProcess.begin(), DiscardProcess.end(), it.first) != DiscardProcess.end()){}
@@ -163,8 +157,6 @@ void EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Un
       } // End discard condition
       
       else {
-        
-        // hInterestingWeights->Fill(GenieNames,1); // Pass
         
         if (std::find(KeepProcess.begin(), KeepProcess.end(), it.first) != KeepProcess.end()){} // look to see if already found string in vector
         else { KeepProcess.push_back(it.first); }
@@ -175,7 +167,8 @@ void EventWeightReader::AddWeights(std::vector<double> N, int Iterations, int Un
     
     // std::cout << std::endl;
     loop_counter += Universes;
-  } // END loop over weights 
+
+  } // END loop over parameters
 
 }
 
@@ -217,21 +210,6 @@ void EventWeightReader::beginJob()
   // Implementation of optional member function here.
   // Access ART's TFileService, which will handle histograms/trees/etc.
 	// art::ServiceHandle<art::TFileService> tfs;
-
-  // hInterestingWeights = 		tfs->make<TH1D>("hInterestingWeights", "Weights to Keep",	20,  0., 10.);
-  // hDiscardWeights     = 		tfs->make<TH1D>("hDiscardWeights",     "Weights to Discard",		20  ,0., 10.);
-
-  // Create the TTree and add relavent branches
-	// DataTree = tfs->make<TTree>("EventTree","EventTree"); 
-  // KeepTree = tfs->make<TTree>("KeepTree","KeepTree"); 
-
-  // Event Information
-	// DataTree->Branch("run", &run);
-	// DataTree->Branch("subrun",&subrun);
-  // DataTree->Branch("event",&evt);
-  // DataTree->Branch("weights",&weights);
-  // KeepTree->Branch("keep",&KeepProcess);
-  // KeepTree->Branch("discard",&DiscardProcess);
 
   // Load in the file containing the event number for Signal_Generated, N_gen or Signal_Selected N_sig
   if (DEBUG) std::cout << "\n Now reading in event files!" << std::endl;
@@ -308,14 +286,11 @@ void EventWeightReader::analyze(art::Event const & e)
     std::cout << "\n+++++++++++++++++++++++" << std::endl;
   }
 
-// DataTree->Fill();
-
 }
 
 void EventWeightReader::endJob()
 {
   // Implementation of optional member function here.
-  // KeepTree->Fill();
 
   // Print out which pricesses to keep and discard
   std::cout << "\n=======================" << std::endl;
