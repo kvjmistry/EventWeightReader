@@ -57,10 +57,16 @@
 #include <iostream>
 #include <fstream>
 
+// Class for event lists
+class Event_List {
+	public:
+		Event_List(std::string label_, std::string reweighter_) {label = label_; reweighter = reweighter_;}; // constructor
+		std::string reweighter;          // Reweighter type e.g. genie, model, reinteraction
+		std::string label;               // name of model used e.g. QEMA, ResDecayEta etc.
+		std::vector<double> N_reweight;  // A vector of reweighted events the size of this will be equal to the number of universes
+};
 
 class EventWeightReader;
-
-
 class EventWeightReader : public art::EDAnalyzer {
 public:
 	explicit EventWeightReader(fhicl::ParameterSet const & p);
@@ -79,7 +85,7 @@ public:
 	// Selected optional functions.
 	void beginJob() override;
 	void endJob() override;
-	void AddWeights(std::vector<double> &N, int &Iterations, int Universes, art::Event const & e);
+	void AddWeights(std::vector<Event_List> &N, art::Event const & e);
 	void ReadEvents(const char *filename, std::vector<int> &N_evt );
 
 private:
@@ -87,27 +93,19 @@ private:
 	// Declare member data here.
 	int run, subrun, evt;
 	std::map<std::string, std::vector<double> > weights; // Map (Model Name, Weight Vector in each universe)
-	
-	std::vector<double> WeightList;           // List of all weights in one vector. 
 
-	std::vector<std::string> KeepProcess;     // Genie processes that are non-zero
-	std::vector<std::string> DiscardProcess;  // Processes that have no effect. 
+	int Iterations{1};          // Number of times looped event to see how quickly module is running
 
-	int Iterations{1};                        // Number of times looped event to see how quickly module is running
-
-	const int Universes{250};                   // The number of universes simulated
-
-	double total_in{0}; // Total number of matched events 
-	double tot_gen{0};  // counter for the total number of gen events read in
-	double tot_sel{0};  // counter for the total number of sel events read in
-	double tot_sig{0};  // counter for the total number of sig events read in
-	double tot_bkg{0};  // counter for the total number of bkg events read in
-	double tot_filt{0};  // counter for the total number of filtered events read in
-	double tot_unmatched{0};  // counter for the total number of filtered events read in
+	double total_in{0}; 		// Total number of matched events 
+	double tot_gen{0};  		// counter for the total number of gen events read in
+	double tot_sel{0};  		// counter for the total number of sel events read in
+	double tot_sig{0};  		// counter for the total number of sig events read in
+	double tot_bkg{0};  		// counter for the total number of bkg events read in
+	double tot_unmatched{0};    // counter for the total number of filtered events read in
 
 	// Vectors for cross section calculation. 
-	std::vector<double> N_gen, N_sig, N_bkg, N_sel ,MC_x_sec, Data_x_sec, Efficiency; // Vectors of num of events with new weights for generated, signal, background, selected
 	std::vector<int> N_gen_evt, N_sig_evt, N_bkg_evt, N_sel_evt, N_filt;          // Vectors of event numbers from infile for generated, signal, background, selected, filtinlist
+	std::vector<Event_List> N_gen, N_sig, N_bkg, N_sel, MC_x_sec, Data_x_sec, Efficiency; // Event lists of events with new weights for generated, signal, background, selected
 	std::vector<std::string> GenieNames;
 	// Flux
 	const double flux_mc{4.19844e+10};
@@ -117,7 +115,6 @@ private:
 	const double targets_mc{3.50191e+31};
 	const double targets_data{3.4723e+31};
 	
-
 	// DATA
 	const double intime_cosmics_bkg{81};              // Number of intime cosmics for background
 	const double num_selected_data{203};              // The number of selected events in data
@@ -127,54 +124,41 @@ private:
 	// DEBUG
 	bool DEBUG{true};
 
-	// Histograms
-	TGraph* gModelXsec;             		              // Graph of the Model vs cross section
-
 	// TTree
 	TTree *DataTree;
+
 };
 
 // A function that loops over all the parameter weights and universes and re-weights the desired events. 
-void EventWeightReader::AddWeights(std::vector<double> &N, int &Iterations, int Universes, art::Event const & e){
+void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const & e){
 
 	auto GenieEW_Handle = e.getValidHandle<std::vector<evwgh::MCEventWeight>>("mcweight"); // Request the mcweight data product
 
-	if(GenieEW_Handle.isValid()) {
-			std::cout << "[Analyze] GenieEW_Handle is valid" << std::endl; 
-	}
-
+	if (GenieEW_Handle.isValid())  std::cout << "[Analyze] GenieEW_Handle is valid" << std::endl; 
+	
 	std::vector<evwgh::MCEventWeight> const& GenieEWvec(*GenieEW_Handle);
 
-	for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) { // Loop over weight handles.
+	std::cout << "Size of genueEWvec: " <<  GenieEWvec.size() << "  If this size is not equal to 1 then we have a problem!!!"<< std::endl;
+
+	for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) weights = GenieEW.fWeight; // Grab the weights 
+
+	// Loop over the labels
+	for (unsigned int j=0; j < N.size(); j++){
 		
-		weights = GenieEW.fWeight; // Grab the weights 
-	}
+		// Loop over the labels in the event weight object
+		for (auto const& it : weights) {
+				
+			if (it.first.find(N.at(j).label.c_str()) != std::string::npos) { // match up the correct parameter
 
-	// Initialise the size of the counter if it is the first event loop. 
-	if (N.size() == 0 ) { N.resize( weights.size() * Universes ); } // Resize to number of parameters * Universes. 
+				// Insert some debug info to see if what we are doing here is correct
 
-	int loop_counter = 0;
-
-	// Loop over the parameter models . 
-	for (auto const& it : weights) {
-		
-		// Loop over each universe for a parameter
-		for (unsigned int i = 0; i < it.second.size(); i++){ 
-			GenieNames.push_back(it.first); 
-			//std::cout <<"Universe:\t " << GenieNames <<"\tindex:\t" << loop_counter + i  << std::endl;
+				if (N.at(j).N_reweight.size() == 0) N.at(j).N_reweight.resize(it.second.size()); // resize to the number of universes if we havent already done so
 			
-			//std::cout << it.second[i] << "\t";
-			WeightList.push_back(it.second[i]); // Add weights to a vector
-
-			N[ loop_counter + i ] += it.second[i]; // Add weight to vector of counters.
-			// std::cout << "Weight\t"<< it.second[i] <<std::endl;
-
-		} // loop over each universe
-		
-		// std::cout << std::endl;
-		loop_counter += Universes;
-
-	} // END loop over parameters
+				// Loop over each universe for a parameter and weight the event
+				for (unsigned int i = 0; i < it.second.size(); i++) N.at(j).N_reweight.at(i) += it.second.at(i) ; // Weight the event
+			}
+		} // END loop over parameters
+	}
 }
 
 // Function that reads in the event numbers from a text file and adds those event numbers to a vector. 
@@ -257,25 +241,12 @@ void ReadEventList(const char *filename, std::vector<int> &N_sig_evt, std::vecto
 
 }
 
+EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p) : EDAnalyzer(p) {}
 
-
-EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p)
-	:
-	EDAnalyzer(p)  // ,
- // More initializers here.
-{}
-
-void EventWeightReader::beginJob()
-{
+void EventWeightReader::beginJob() {
 	// Implementation of optional member function here.
 	// Access ART's TFileService, which will handle histograms/trees/etc.
 	art::ServiceHandle<art::TFileService> tfs;
-
-	// Energy Calibration scatter plot
-	gModelXsec = tfs->makeAndRegister<TGraph>("gModelXsec", "Universe Cross sections;Model; Re-calculated Cross Section [cm^2]");
-	gModelXsec->SetMarkerStyle(kFullDotMedium);
-	gModelXsec->SetMarkerSize(6);
-	gModelXsec->SetLineWidth(0);
 
 	// Create the TTree and add relavent branches
 	DataTree = tfs->make<TTree>("XSectionTree","XSectionTree");
@@ -308,7 +279,6 @@ void EventWeightReader::beginJob()
 	std::cout << "WARNING!! Remember to change number of universes to correct amount otherwise this will segfault :("<<  std::endl;
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
 
-
 }
 void EventWeightReader::analyze(art::Event const & e)
 {
@@ -319,7 +289,7 @@ void EventWeightReader::analyze(art::Event const & e)
 	evt =     e.id().event();
 
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
-	std::cout << "Event processed:\t" << Iterations<< std::endl;
+	std::cout << "Event processed:\t" << Iterations << std::endl;
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
 	Iterations++;
 
@@ -332,7 +302,7 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_gen++;
 
 		// Found event in the N_gen vector and so add weights for this event
-		AddWeights(N_gen, Iterations, Universes, e);
+		// AddWeights(N_gen, Iterations, Universes, e);
 	}
 	// ++++++++++++++++++++ N_sel +++++++++++++++++++++++++++++
 	if ( std::find( N_sel_evt.begin(), N_sel_evt.end(), evt) != N_sel_evt.end()){
@@ -342,7 +312,7 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_sel++;
 
 		// Found event in the N_sel vector and so add weights for this event
-		AddWeights(N_sel, Iterations, Universes, e);
+		// AddWeights(N_sel, Iterations, Universes, e);
 	}
 	// ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
 	if ( std::find( N_sig_evt.begin(), N_sig_evt.end(), evt) != N_sig_evt.end()){
@@ -352,7 +322,7 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_sig++;
 
 		// Found event in the N_sig vector and so add weights for this event
-		AddWeights(N_sig, Iterations, Universes, e);
+		// AddWeights(N_sig, Iterations, Universes, e);
 	}
 	// ++++++++++++++++++++ N_bkg +++++++++++++++++++++++++++++
 	if ( std::find( N_bkg_evt.begin(), N_bkg_evt.end(), evt) != N_bkg_evt.end()){
@@ -362,7 +332,7 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_bkg++;
 
 		// Found event in the N_bkg vector and so add weights for this event
-		AddWeights(N_bkg, Iterations, Universes, e);
+		// AddWeights(N_bkg, Iterations, Universes, e);
 	}
 	else{
 		if (DEBUG) std::cout << "Unmatched Event\t" << std::endl;
@@ -374,80 +344,76 @@ total_in = tot_gen + tot_bkg;
 	
 }
 
-void EventWeightReader::endJob()
-{
+void EventWeightReader::endJob() {
 
-	// Implementation of optional member function here.
-	std::cout << "\nBeginning END JOB..." << std::endl;
+	// // Implementation of optional member function here.
+	// std::cout << "\nBeginning END JOB..." << std::endl;
 	
-	std::cout << "\n=======================" << std::endl;
-	std::cout << "Read in Events\n" << std::endl;
-	std::cout << "=======================\n" << std::endl;
-	std::cout << "\nN_gen:\t" << tot_gen << std::endl;
-	std::cout << "\nN_sel:\t" << tot_sel << std::endl;
-	std::cout << "\nN_sig:\t" << tot_sig << std::endl;
-	std::cout << "\nN_bkg:\t" << tot_bkg << std::endl;
-	std::cout << "\nTotal:\t" << total_in << std::endl;
-	std::cout << "\nTotal Unmatched Events:\t" << tot_unmatched << std::endl;
+	// std::cout << "\n=======================" << std::endl;
+	// std::cout << "Read in Events\n" << std::endl;
+	// std::cout << "=======================\n" << std::endl;
+	// std::cout << "\nN_gen:\t" << tot_gen << std::endl;
+	// std::cout << "\nN_sel:\t" << tot_sel << std::endl;
+	// std::cout << "\nN_sig:\t" << tot_sig << std::endl;
+	// std::cout << "\nN_bkg:\t" << tot_bkg << std::endl;
+	// std::cout << "\nTotal:\t" << total_in << std::endl;
+	// std::cout << "\nTotal Unmatched Events:\t" << tot_unmatched << std::endl;
 
-	std::cout << "\n=======================" << std::endl;
-	std::cout << "CV Cross sections\n" << std::endl;
-	std::cout << "=======================\n" << std::endl;
-	std::cout << "\nMC:\t" << (tot_sel + 2 - tot_bkg) / ( (tot_sig + 2 ) / (tot_gen + 4) * flux_mc * targets_mc) << std::endl;
-	std::cout << "\nData:\t" << ( num_selected_data - ((tot_bkg) * mc_scale_factor + intime_cosmics_bkg * intime_cosmic_scale_factor )) / ( ((tot_sig + 2)/(tot_gen + 4 )) * flux_data * targets_data) << std::endl;
+	// std::cout << "\n=======================" << std::endl;
+	// std::cout << "CV Cross sections\n" << std::endl;
+	// std::cout << "=======================\n" << std::endl;
+	// std::cout << "\nMC:\t" << (tot_sel + 2 - tot_bkg) / ( (tot_sig + 2 ) / (tot_gen + 4) * flux_mc * targets_mc) << std::endl;
+	// std::cout << "\nData:\t" << ( num_selected_data - ((tot_bkg) * mc_scale_factor + intime_cosmics_bkg * intime_cosmic_scale_factor )) / ( ((tot_sig + 2)/(tot_gen + 4 )) * flux_data * targets_data) << std::endl;
 
-	std::cout << "\n=======================" << std::endl;
-	std::cout << "Now Re-Calculating cross sections" << std::endl;
-	std::cout << "=======================\n" << std::endl;
+	// std::cout << "\n=======================" << std::endl;
+	// std::cout << "Now Re-Calculating cross sections" << std::endl;
+	// std::cout << "=======================\n" << std::endl;
 
-	// Open a file with the new x section values in
-	std::ofstream MC_weighted_xsec_file;
-	MC_weighted_xsec_file.open("MC_weighted_xsec_file.txt");
+	// // Open a file with the new x section values in
+	// std::ofstream MC_weighted_xsec_file;
+	// MC_weighted_xsec_file.open("MC_weighted_xsec_file.txt");
 
-	std::ofstream Data_weighted_xsec_file;
-	Data_weighted_xsec_file.open("Data_weighted_xsec_file.txt");
+	// std::ofstream Data_weighted_xsec_file;
+	// Data_weighted_xsec_file.open("Data_weighted_xsec_file.txt");
 
-	MC_x_sec.resize(N_gen.size()); // Resize
-	Data_x_sec.resize(N_gen.size());
-	Efficiency.resize(N_gen.size());
+	// MC_x_sec.resize(N_gen.size()); // Resize
+	// Data_x_sec.resize(N_gen.size());
+	// Efficiency.resize(N_gen.size());
 
-	// Calculate the new Cross section. 
-	for (unsigned int i{0}; i < N_gen.size(); i++){
+	// // Calculate the new Cross section. 
+	// for (unsigned int i{0}; i < N_gen.size(); i++){
 
-		// Recalculations due to not weighting non MC genie stuff and other bugs
-		N_gen[i] = N_gen[i] + 4  ;  // The plus 4 is for the tpc obj of size zero bug
-		N_sel[i] = tot_sel  + 2; ;  // ANDY F: do not reweight the selected events in MC so it is like data
-		N_sig[i] = N_sig[i] + 2;    // Missing two events from somewhere
-		N_bkg[i] = N_bkg[i];
+	// 	// Recalculations due to not weighting non MC genie stuff and other bugs
+	// 	N_gen[i] = N_gen[i] + 4  ;  // The plus 4 is for the tpc obj of size zero bug
+	// 	N_sel[i] = tot_sel  + 2; ;  // ANDY F: do not reweight the selected events in MC so it is like data
+	// 	N_sig[i] = N_sig[i] + 2;    // Missing two events from somewhere
+	// 	N_bkg[i] = N_bkg[i];
 
-		Efficiency[i] = N_sig[i] / N_gen[i];  // 0.0884133 CV efficiency
-		if (DEBUG) std::cout << "\n+++++++\nEfficiency\t" << Efficiency[i] << std::endl;
+	// 	Efficiency[i] = N_sig[i] / N_gen[i];  // 0.0884133 CV efficiency
+	// 	if (DEBUG) std::cout << "\n+++++++\nEfficiency\t" << Efficiency[i] << std::endl;
 
-		std::cout << "\nN_gen:\t" << N_gen[i] << std::endl;
-		std::cout << "N_sel:\t" << N_sel[i] << std::endl;
-		std::cout << "N_sig:\t" << N_sig[i] << std::endl;
-		std::cout << "N_bkg:\t" << N_bkg[i] << "\n"<< std::endl;
+	// 	std::cout << "\nN_gen:\t" << N_gen[i] << std::endl;
+	// 	std::cout << "N_sel:\t" << N_sel[i] << std::endl;
+	// 	std::cout << "N_sig:\t" << N_sig[i] << std::endl;
+	// 	std::cout << "N_bkg:\t" << N_bkg[i] << "\n"<< std::endl;
 
-		MC_x_sec[i] =  (N_sel[i] - N_bkg[i]) / ( Efficiency[i] * flux_mc * targets_mc);
-		if (DEBUG) std::cout << "New MC X-section [10^-39 cm^2]\t\t" << MC_x_sec[i]/1e-39 << std::endl;
+	// 	MC_x_sec[i] =  (N_sel[i] - N_bkg[i]) / ( Efficiency[i] * flux_mc * targets_mc);
+	// 	if (DEBUG) std::cout << "New MC X-section [10^-39 cm^2]\t\t" << MC_x_sec[i]/1e-39 << std::endl;
 
-		MC_weighted_xsec_file << MC_x_sec[i] << "\n"; // Put the new MC cross sections into a text file. 
-		// std::cout << "MC_x_sec[i]:\t" << MC_x_sec[i] << std::endl;
+	// 	MC_weighted_xsec_file << MC_x_sec[i] << "\n"; // Put the new MC cross sections into a text file. 
+	// 	// std::cout << "MC_x_sec[i]:\t" << MC_x_sec[i] << std::endl;
 
-		double num_bkg_data = N_bkg[i] * mc_scale_factor + intime_cosmics_bkg * intime_cosmic_scale_factor; // scale the number of background events
+	// 	double num_bkg_data = N_bkg[i] * mc_scale_factor + intime_cosmics_bkg * intime_cosmic_scale_factor; // scale the number of background events
 
-		std::cout << "Num Bkg Data:\t" << num_bkg_data << "\tintime_cosmics_bkg * intime_cosmic_scale_factor\t" << intime_cosmics_bkg * intime_cosmic_scale_factor << std::endl;
+	// 	std::cout << "Num Bkg Data:\t" << num_bkg_data << "\tintime_cosmics_bkg * intime_cosmic_scale_factor\t" << intime_cosmics_bkg * intime_cosmic_scale_factor << std::endl;
 		
-		Data_x_sec[i] = (num_selected_data - num_bkg_data) / ( Efficiency[i] * flux_data * targets_data  );
+	// 	Data_x_sec[i] = (num_selected_data - num_bkg_data) / ( Efficiency[i] * flux_data * targets_data  );
 
-		Data_weighted_xsec_file << Data_x_sec[i] << "\n"; // Put the new Data cross sections into a text file. 
-		if (DEBUG) std::cout << "New Data X-section [10^-39 cm^2]\t" << Data_x_sec[i]/1e-39 << std::endl;
-
-		// Now fill the model vs cross section histogram and ttree.
-		gModelXsec->SetPoint(i, i, MC_x_sec[i]);
+	// 	Data_weighted_xsec_file << Data_x_sec[i] << "\n"; // Put the new Data cross sections into a text file. 
+	// 	if (DEBUG) std::cout << "New Data X-section [10^-39 cm^2]\t" << Data_x_sec[i]/1e-39 << std::endl;
 		
-	}
-	DataTree->Fill();
+	// }
+	// DataTree->Fill();
 
 }
 
