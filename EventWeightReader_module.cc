@@ -169,22 +169,6 @@ void EventWeightReader::AddWeights(std::vector<double> &N, int &Iterations, int 
 			N[ loop_counter + i ] += it.second[i]; // Add weight to vector of counters.
 			// std::cout << "Weight\t"<< it.second[i] <<std::endl;
 
-			// Fill vectors which have non 1 and 1 values to see what processes we can discard. 
-			if (it.second[i] == 1.0){
-				
-				// look to see if already found string in vector
-				if (std::find(DiscardProcess.begin(), DiscardProcess.end(), it.first) != DiscardProcess.end()){}
-				else { DiscardProcess.push_back(it.first); }
-			
-			} // End discard condition
-			
-			else {
-				
-				if (std::find(KeepProcess.begin(), KeepProcess.end(), it.first) != KeepProcess.end()){} // look to see if already found string in vector
-				else { KeepProcess.push_back(it.first); }
-					 
-			} // end Keep condition
-
 		} // loop over each universe
 		
 		// std::cout << std::endl;
@@ -219,6 +203,61 @@ void EventWeightReader::ReadEvents(const char *filename, std::vector<int> &N_evt
 		}
 
 }
+
+// Same as Read events function, but now split the selected events into their new catagories. 
+void ReadEventList(const char *filename, std::vector<int> &N_sig_evt, std::vector<int> &N_bkg_evt, std::vector<int> &N_sel_evt ){
+
+	// event number, classifier type, mc_nu_id
+	std::vector<int>         N_evtnum;
+	std::vector<std::string> class_type;
+	std::vector<int>         mc_nu_id;
+
+	std::ifstream fileIN;
+
+	fileIN.open(filename); // Open the file
+
+	if (!fileIN.good()) {  // Check if the file opened correctly
+			std::cerr << "Error: file:\t" << filename <<"\tcould not be opened" << std::endl;
+			exit(1);
+	}
+
+	int temp_evtnum,  temp_mc_nu_id;
+	std::string temp_class_type;
+
+	if (fileIN.is_open()) {
+
+		// loop over lines in file
+		while ( fileIN >> temp_evtnum >> temp_class_type >> temp_mc_nu_id) {
+
+			N_evtnum.push_back(temp_evtnum);
+			class_type.push_back(temp_class_type);
+			mc_nu_id.push_back(temp_mc_nu_id);
+		}
+
+		fileIN.close();
+	}
+
+	// Now got the info, recatagorise and get the relavent events 
+	for (unsigned int i = 0; i < N_evtnum.size(); i++){
+		// Push back selected events
+		N_sel_evt.push_back(N_evtnum[i]);
+		
+		// Signal
+		if ((class_type[i].compare(0,6,"nue_cc") == 0 && class_type[i] != "nue_cc_out_fv" && class_type[i] != "nue_cc_mixed") || (class_type[i].compare(0,10,"nue_bar_cc") == 0  && class_type[i] != "nue_bar_mixed") ) {
+			N_sig_evt.push_back(N_evtnum[i]);
+		}
+		// Dirt
+		else if (class_type[i] == "Dirt"){
+		}
+		// Background
+		else {
+			N_bkg_evt.push_back(N_evtnum[i]);
+		}
+	}
+
+}
+
+
 
 EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p)
 	:
@@ -256,28 +295,12 @@ void EventWeightReader::beginJob()
 	
 	ReadEvents("Gen_events.txt", N_gen_evt ); 
 
-	// ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
-	
-	ReadEvents("Sig_events.txt", N_sig_evt ); 
-
-	// ++++++++++++++++++++ N_sel +++++++++++++++++++++++++++++
-	
-	ReadEvents("Sel_events.txt", N_sel_evt ); 
-
-	// ++++++++++++++++++++ N_bkg +++++++++++++++++++++++++++++
-	
-	ReadEvents("Bkg_events.txt", N_bkg_evt ); 
-
-	// ++++++++++++++++++++ Filtered list total +++++++++++++++++++++++++++++
-	
-	ReadEvents("FilteredList.txt", N_filt ); 
-
+	ReadEventList("sel.txt", N_sig_evt, N_bkg_evt, N_sel_evt ); 
 
 	if (DEBUG) std::cout << "Size of Generated vector:  \t"<< N_gen_evt.size() - 1 << std::endl;
 	if (DEBUG) std::cout << "Size of signal vector:     \t"<< N_sig_evt.size() - 1 << std::endl;
 	if (DEBUG) std::cout << "Size of selected vector:   \t"<< N_sel_evt.size() - 1 << std::endl;
 	if (DEBUG) std::cout << "Size of background vector: \t"<< N_bkg_evt.size() - 1 << std::endl;
-	if (DEBUG) std::cout << "Size of input Filtered List: \t"<< N_filt.size() - 1 << std::endl;
 
 	if (DEBUG) std::cout << "\nFinished reading in event files!\n" << std::endl;
 
@@ -341,14 +364,6 @@ void EventWeightReader::analyze(art::Event const & e)
 		// Found event in the N_bkg vector and so add weights for this event
 		AddWeights(N_bkg, Iterations, Universes, e);
 	}
-
-	// ++++++++++++++++++++ Filtered list check +++++++++++++++++++++++++++++
-	if ( std::find( N_filt.begin(), N_filt.end(), evt) != N_filt.end()){
-		
-		if (DEBUG) std::cout << "Matched a Filtered Event\t" << std::endl;
-
-		tot_filt++;
-	}
 	else{
 		if (DEBUG) std::cout << "Unmatched Event\t" << std::endl;
 		tot_unmatched++;
@@ -365,21 +380,6 @@ void EventWeightReader::endJob()
 	// Implementation of optional member function here.
 	std::cout << "\nBeginning END JOB..." << std::endl;
 	
-	// // Print out which pricesses to keep and discard
-	// std::cout << "\n=======================" << std::endl;
-	// std::cout << "Keep genie Processes\n" << std::endl;
-	// std::cout << "=======================\n" << std::endl;
-	// for (unsigned int i = 0; i< KeepProcess.size(); i++){
-	//   std::cout << KeepProcess[i] << std::endl;
-	// }
-
-	// std::cout << "\n=======================" << std::endl;
-	// std::cout << "Discard genie Processes\n" << std::endl;
-	// std::cout << "=======================\n" << std::endl;
-	// for (unsigned int i = 0; i< DiscardProcess.size(); i++){
-	//   std::cout << DiscardProcess[i] << std::endl;
-	// }
-
 	std::cout << "\n=======================" << std::endl;
 	std::cout << "Read in Events\n" << std::endl;
 	std::cout << "=======================\n" << std::endl;
@@ -388,7 +388,6 @@ void EventWeightReader::endJob()
 	std::cout << "\nN_sig:\t" << tot_sig << std::endl;
 	std::cout << "\nN_bkg:\t" << tot_bkg << std::endl;
 	std::cout << "\nTotal:\t" << total_in << std::endl;
-	std::cout << "\nTotal Filtered Events:\t" << tot_filt << std::endl;
 	std::cout << "\nTotal Unmatched Events:\t" << tot_unmatched << std::endl;
 
 	std::cout << "\n=======================" << std::endl;
