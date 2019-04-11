@@ -159,7 +159,7 @@ void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const 
 	
 	std::vector<evwgh::MCEventWeight> const& GenieEWvec(*GenieEW_Handle);
 
-	std::cout << "Size of genueEWvec: " <<  GenieEWvec.size() << "  If this size is not equal to 1 then we have a problem!!!"<< std::endl;
+	//std::cout << "Size of genueEWvec: " <<  GenieEWvec.size() << "  If this size is not equal to 1 then we have a problem!!!"<< std::endl;
 
 	for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) weights = GenieEW.fWeight; // Grab the weights 
 
@@ -172,6 +172,7 @@ void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const 
 			if (it.first.find(N.at(j).label.c_str()) != std::string::npos) { // match up the correct parameter
 
 				// Insert some debug info to see if what we are doing here is correct
+				// std::cout << it.first << "  " << N.at(j).label << std::endl;
 
 				if (N.at(j).N_reweight.size() == 0) N.at(j).N_reweight.resize(it.second.size()); // resize to the number of universes if we havent already done so
 			
@@ -346,7 +347,7 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_gen++;
 
 		// Found event in the N_gen vector and so add weights for this event
-		// AddWeights(N_gen, Iterations, Universes, e);
+		AddWeights(N_gen, e);
 	}
 	// ++++++++++++++++++++ N_sel +++++++++++++++++++++++++++++
 	if ( std::find( N_sel_evt.begin(), N_sel_evt.end(), evt) != N_sel_evt.end()){
@@ -356,7 +357,7 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_sel++;
 
 		// Found event in the N_sel vector and so add weights for this event
-		// AddWeights(N_sel, Iterations, Universes, e);
+		// AddWeights(N_sel, e); // for now we only care about data x sec so forget about this
 	}
 	// ++++++++++++++++++++ N_sig +++++++++++++++++++++++++++++
 	if ( std::find( N_sig_evt.begin(), N_sig_evt.end(), evt) != N_sig_evt.end()){
@@ -366,7 +367,7 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_sig++;
 
 		// Found event in the N_sig vector and so add weights for this event
-		// AddWeights(N_sig, Iterations, Universes, e);
+		AddWeights(N_sig, e);
 	}
 	// ++++++++++++++++++++ N_bkg +++++++++++++++++++++++++++++
 	if ( std::find( N_bkg_evt.begin(), N_bkg_evt.end(), evt) != N_bkg_evt.end()){
@@ -376,9 +377,8 @@ void EventWeightReader::analyze(art::Event const & e)
 		tot_bkg++;
 
 		// Found event in the N_bkg vector and so add weights for this event
-		// AddWeights(N_bkg, Iterations, Universes, e);
+		AddWeights(N_bkg, e);
 	}
-
 
 	total_in = tot_gen + tot_bkg;
 	
@@ -457,8 +457,8 @@ void EventWeightReader::endJob() {
 		temp_gen  = N_gen[i];
 		temp_sig  = N_sig[i];
 		temp_bkg  = N_bkg[i];
-		temp_eff  = N_eff[i];
-		temp_xsec = N_xsec[i];
+		temp_eff  = Efficiency[i];
+		temp_xsec = Data_x_sec[i];
 		DataTree->Fill();
 	}
 	
