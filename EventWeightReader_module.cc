@@ -81,6 +81,9 @@ public:
 	void endJob() override;
 	void AddWeights(std::vector<Event_List> &N, art::Event const & e);
 	void ReadEvents(const char *filename, std::vector<int> &N_evt );
+	double CalcDataXSec(double sel, double bkg , double flux,
+                    double targets, double intime_cosmics_bkg, double intime_cosmic_scale_factor,
+                    double dirt, double dirt_scale_factor, double mc_scale_factor, double efficiency );
 
 private:
 
@@ -111,17 +114,18 @@ private:
 	const double targets_data{3.4723e+31};
 	
 	// DATA
-	const double intime_cosmics_bkg{81};              // Number of intime cosmics for background
-	const double num_selected_data{203};              // The number of selected events in data
-	const double intime_cosmic_scale_factor{0.97918}; // Scale factor to apply to the intime cosimic background
-	const double mc_scale_factor{0.13};               // Scale factor to apply to the mc background
+	const double intime_cosmics_bkg{83};              // Number of intime cosmics for background
+	const double num_selected_data{214};              // The number of selected events in data
+	const double intime_cosmic_scale_factor{1.0154};  // Scale factor to apply to the intime cosimic background
+	const double mc_scale_factor{0.1301};             // Scale factor to apply to the mc background
+	const double dirt_scale_factor{0.16411};
+	const double dirt {30};
 
 	// DEBUG
 	bool DEBUG{true};
 
 	// TTree
 	TTree *DataTree;
-	// TTree *TestTree;
 
 	// labels
 	std::vector<std::string> labels_genie {
@@ -145,10 +149,39 @@ private:
 	};
 	
 	std::vector<std::string> labels_model { "model_q0q3_ccmec", "model_q0q3_ccqe" };
+	
 	std::vector<std::string> labels_reinteractions { "reinteractions_proton", "reinteractions_piplus", "reinteractions_piminus" };
 	
 
 };
+
+
+
+// Function to calculate the data cross section
+double EventWeightReader::CalcDataXSec(double sel, double bkg , double flux,
+                    double targets, double intime_cosmics_bkg, double intime_cosmic_scale_factor,
+                    double dirt, double dirt_scale_factor, double mc_scale_factor, double efficiency ){
+
+    // std::cout <<
+    // "DEBUG:\n"<<
+    // "sel:\t" << sel << "\n" <<
+    // "bkg:\t" << bkg  << "\n" <<
+    // "flux:\t" << flux << "\n" <<
+    // "targets:\t" << targets << "\n" <<
+    // "intime_cosmics_bkg:\t" << intime_cosmics_bkg << "\n" <<
+    // "intime cosmic scale factor:\t" << intime_cosmic_scale_factor << "\n" <<
+    // "dirt:\t" << dirt << "\n" <<
+    // "dirt scale factor:\t" << dirt_scale_factor << "\n" <<
+    // "mc scale factor:\t" << mc_scale_factor << "\n" <<
+    // "efficiency:\t" << efficiency << std::endl;
+
+    // std::cout << "Total Scaled background:\t" <<  (intime_cosmics_bkg * intime_cosmic_scale_factor) - (dirt * dirt_scale_factor) - (bkg * mc_scale_factor) << std::endl; 
+
+    // return (sel - 129.974) / (efficiency * targets * flux); 
+    return (sel - (intime_cosmics_bkg * intime_cosmic_scale_factor) - (dirt * dirt_scale_factor) - (bkg * mc_scale_factor)) / (efficiency * targets * flux);
+}
+
+
 
 // A function that loops over all the parameter weights and universes and re-weights the desired events. 
 void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const & e){
@@ -265,7 +298,7 @@ void ReadEventList(const char *filename, std::vector<int> &N_sig_evt, std::vecto
 EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p) : EDAnalyzer(p) {}
 
 void EventWeightReader::beginJob() {
-	// Implementation of optional member function here.
+	
 	// Access ART's TFileService, which will handle histograms/trees/etc.
 	art::ServiceHandle<art::TFileService> tfs;
 
@@ -325,8 +358,7 @@ void EventWeightReader::beginJob() {
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
 
 }
-void EventWeightReader::analyze(art::Event const & e)
-{
+void EventWeightReader::analyze(art::Event const & e) {
 	// Implementation of required member function here.
 	// Determine event ID, run and subrun 
 	run =     e.id().run();
@@ -398,62 +430,53 @@ void EventWeightReader::endJob() {
 	std::cout << "\nN_bkg:\t" << tot_bkg << std::endl;
 	std::cout << "\nTotal:\t" << total_in << std::endl;
 
-	// std::cout << "\n=======================" << std::endl;
-	// std::cout << "CV Cross sections\n" << std::endl;
-	// std::cout << "=======================\n" << std::endl;
-	// std::cout << "\nMC:\t" << (tot_sel + 2 - tot_bkg) / ( (tot_sig + 2 ) / (tot_gen + 4) * flux_mc * targets_mc) << std::endl;
-	// std::cout << "\nData:\t" << ( num_selected_data - ((tot_bkg) * mc_scale_factor + intime_cosmics_bkg * intime_cosmic_scale_factor )) / ( ((tot_sig + 2)/(tot_gen + 4 )) * flux_data * targets_data) << std::endl;
+	std::cout << "\n=======================" << std::endl;
+	std::cout << "CV Cross sections\n" << std::endl;
+	std::cout << "=======================\n" << std::endl;
+	double efficiency = 0.0904;
+	double bkg = 356;
+	std::cout << "\nCV Data X Sec:\t" <<
+	 CalcDataXSec(num_selected_data, bkg , flux_data, targets_data, intime_cosmics_bkg, intime_cosmic_scale_factor, dirt, dirt_scale_factor, mc_scale_factor, efficiency )	
+	 	<< std::endl;
+	
+	std::cout << "\n=======================" << std::endl;
+	std::cout << "Now Re-Calculating cross sections" << std::endl;
+	std::cout << "=======================\n" << std::endl;
 
-	// std::cout << "\n=======================" << std::endl;
-	// std::cout << "Now Re-Calculating cross sections" << std::endl;
-	// std::cout << "=======================\n" << std::endl;
+	
+	Data_x_sec.resize(N_gen.size());
+	Efficiency.resize(N_gen.size());
 
-	// // Open a file with the new x section values in
-	// std::ofstream MC_weighted_xsec_file;
-	// MC_weighted_xsec_file.open("MC_weighted_xsec_file.txt");
-
-	// std::ofstream Data_weighted_xsec_file;
-	// Data_weighted_xsec_file.open("Data_weighted_xsec_file.txt");
-
-	// MC_x_sec.resize(N_gen.size()); // Resize
-	// Data_x_sec.resize(N_gen.size());
-	// Efficiency.resize(N_gen.size());
-
-	// // Calculate the new Cross section. 
-	// for (unsigned int i{0}; i < N_gen.size(); i++){
-
-	// 	// Recalculations due to not weighting non MC genie stuff and other bugs
-	// 	N_gen[i] = N_gen[i] + 4  ;  // The plus 4 is for the tpc obj of size zero bug
-	// 	N_sel[i] = tot_sel  + 2; ;  // ANDY F: do not reweight the selected events in MC so it is like data
-	// 	N_sig[i] = N_sig[i] + 2;    // Missing two events from somewhere
-	// 	N_bkg[i] = N_bkg[i];
-
-	// 	Efficiency[i] = N_sig[i] / N_gen[i];  // 0.0884133 CV efficiency
-	// 	if (DEBUG) std::cout << "\n+++++++\nEfficiency\t" << Efficiency[i] << std::endl;
-
-	// 	std::cout << "\nN_gen:\t" << N_gen[i] << std::endl;
-	// 	std::cout << "N_sel:\t" << N_sel[i] << std::endl;
-	// 	std::cout << "N_sig:\t" << N_sig[i] << std::endl;
-	// 	std::cout << "N_bkg:\t" << N_bkg[i] << "\n"<< std::endl;
-
-	// 	MC_x_sec[i] =  (N_sel[i] - N_bkg[i]) / ( Efficiency[i] * flux_mc * targets_mc);
-	// 	if (DEBUG) std::cout << "New MC X-section [10^-39 cm^2]\t\t" << MC_x_sec[i]/1e-39 << std::endl;
-
-	// 	MC_weighted_xsec_file << MC_x_sec[i] << "\n"; // Put the new MC cross sections into a text file. 
-	// 	// std::cout << "MC_x_sec[i]:\t" << MC_x_sec[i] << std::endl;
-
-	// 	double num_bkg_data = N_bkg[i] * mc_scale_factor + intime_cosmics_bkg * intime_cosmic_scale_factor; // scale the number of background events
-
-	// 	std::cout << "Num Bkg Data:\t" << num_bkg_data << "\tintime_cosmics_bkg * intime_cosmic_scale_factor\t" << intime_cosmics_bkg * intime_cosmic_scale_factor << std::endl;
+	// Loop over all the reweighters
+	for (unsigned int i{0}; i < N_gen.size(); i++){
 		
-	// 	Data_x_sec[i] = (num_selected_data - num_bkg_data) / ( Efficiency[i] * flux_data * targets_data  );
+		// Resizing
+		if (Data_x_sec.at(i).N_reweight.size() == 0) Data_x_sec.at(i).N_reweight.resize(N_gen.at(i).N_reweight.size()); 
+		if (Efficiency.at(i).N_reweight.size() == 0) Efficiency.at(i).N_reweight.resize(N_gen.at(i).N_reweight.size()); 
 
-	// 	Data_weighted_xsec_file << Data_x_sec[i] << "\n"; // Put the new Data cross sections into a text file. 
-	// 	if (DEBUG) std::cout << "New Data X-section [10^-39 cm^2]\t" << Data_x_sec[i]/1e-39 << std::endl;
+		// loop over all the universes
+
+		for (unsigned int j = 0; j < N_gen.at(i).N_reweight.size(); j++){
+			// Now we want to calculate the new efficiency
+			Efficiency.at(i).N_reweight.at(j) = N_sig.at(i).N_reweight.at(j) / (N_gen.at(i).N_reweight.at(j) + 4);
+
+			// Calculate the new cross section
+			Data_x_sec.at(i).N_reweight.at(j) = CalcDataXSec(num_selected_data, N_bkg.at(i).N_reweight.at(j) , flux_data, targets_data, intime_cosmics_bkg, intime_cosmic_scale_factor, dirt, dirt_scale_factor, mc_scale_factor, Efficiency.at(i).N_reweight.at(j) );	
+
+			if (DEBUG) std::cout << "\n+++++++\nEfficiency\t" << Efficiency.at(i).N_reweight.at(j) << std::endl;
+
+			std::cout << "\nReweighter\t" << N_gen.at(i).reweighter << std::endl;
+			std::cout << "\nLabel:\t" << N_gen.at(i).label << std::endl;
+			std::cout << "\nUniverse:\t" << j << std::endl;
+			std::cout << "\nN_gen:\t" << N_gen.at(i).N_reweight.at(j) + 4 << std::endl;
+			std::cout << "N_sel:\t" << num_selected_data << std::endl;
+			std::cout << "N_sig:\t" << N_sig.at(i).N_reweight.at(j) << std::endl;
+			std::cout << "N_bkg:\t" <<N_bkg.at(i).N_reweight.at(j) << "\n"<< std::endl;
+
+			if (DEBUG) std::cout << "New Data X-section [10^-39 cm^2]\t" << Data_x_sec.at(i).N_reweight.at(j)/1e-39 << std::endl;
+
+		}
 		
-	// }
-
-	for (unsigned int i=0; i < N_gen.size(); i++){
 		temp_gen  = N_gen[i];
 		temp_sig  = N_sig[i];
 		temp_bkg  = N_bkg[i];
@@ -461,7 +484,7 @@ void EventWeightReader::endJob() {
 		temp_xsec = Data_x_sec[i];
 		DataTree->Fill();
 	}
-	
+
 }
 
 DEFINE_ART_MODULE(EventWeightReader)
