@@ -53,18 +53,12 @@
 #include "TF1.h" 
 #include "TMath.h"
 #include "TString.h"
+#include "TFile.h"
 
 #include <iostream>
 #include <fstream>
 
-// Class for event lists
-class Event_List {
-	public:
-		Event_List(std::string label_, std::string reweighter_) {label = label_; reweighter = reweighter_;}; // constructor
-		std::string reweighter;          // Reweighter type e.g. genie, model, reinteraction
-		std::string label;               // name of model used e.g. QEMA, ResDecayEta etc.
-		std::vector<double> N_reweight;  // A vector of reweighted events the size of this will be equal to the number of universes
-};
+#include "Event_List.h"
 
 class EventWeightReader;
 class EventWeightReader : public art::EDAnalyzer {
@@ -101,12 +95,13 @@ private:
 	double tot_sel{0};  		// counter for the total number of sel events read in
 	double tot_sig{0};  		// counter for the total number of sig events read in
 	double tot_bkg{0};  		// counter for the total number of bkg events read in
-	double tot_unmatched{0};    // counter for the total number of filtered events read in
 
 	// Vectors for cross section calculation. 
 	std::vector<int> N_gen_evt, N_sig_evt, N_bkg_evt, N_sel_evt, N_filt;          // Vectors of event numbers from infile for generated, signal, background, selected, filtinlist
-	std::vector<Event_List> N_gen, N_sig, N_bkg, N_sel, MC_x_sec, Data_x_sec, Efficiency; // Event lists of events with new weights for generated, signal, background, selected
-	std::vector<std::string> GenieNames;
+	std::vector<Event_List> N_gen, N_sig, N_bkg, Data_x_sec, Efficiency;   // Event lists of events with new weights for generated, signal, background, selected
+
+	Event_List temp_gen, temp_sig, temp_bkg, temp_xsec, temp_eff;       // Temporary objects for filling the ttree with
+
 	// Flux
 	const double flux_mc{4.19844e+10};
 	const double flux_data{5.45797e+9};
@@ -126,6 +121,32 @@ private:
 
 	// TTree
 	TTree *DataTree;
+	// TTree *TestTree;
+
+	// labels
+	std::vector<std::string> labels_genie {
+		"genie_qema",
+		"genie_ncelAxial",       "genie_ncelEta",
+		"genie_ccresAxial",      "genie_ccresVector",
+		"genie_ncresAxial",      "genie_ncresVector",
+		"genie_cohMA",           "genie_cohR0",
+		"genie_NonResRvp1pi",    "genie_NonResRvbarp1pi",
+		"genie_NonResRvp2pi",    "genie_NonResRvbarp2pi",
+		"genie_ResDecayGamma" ,  "genie_ResDecayTheta",
+		"genie_NC",
+		"genie_DISAth",          "genie_DISBth",          "genie_DISCv1u",       "genie_DISCv2u",
+		// "genie_AGKYxF",       "genie_AGKYpT",          // removed due to just giving back weights of 1
+		"genie_FormZone",
+		"genie_FermiGasModelKf",
+		"genie_IntraNukeNmfp",   "genie_IntraNukeNcex",   "genie_IntraNukeNel",
+		"genie_IntraNukeNinel",  "genie_IntraNukeNabs",   "genie_IntraNukeNpi",
+		"genie_IntraNukePImfp",  "genie_IntraNukePIcex",  "genie_IntraNukePIel",
+		"genie_IntraNukePIinel", "genie_IntraNukePIabs",  "genie_IntraNukePIpi"
+	};
+	
+	std::vector<std::string> labels_model { "model_q0q3_ccmec", "model_q0q3_ccqe" };
+	std::vector<std::string> labels_reinteractions { "reinteractions_proton", "reinteractions_piplus", "reinteractions_piminus" };
+	
 
 };
 
@@ -173,18 +194,17 @@ void EventWeightReader::ReadEvents(const char *filename, std::vector<int> &N_evt
 		exit(1);
 	}
 
-		double temp{0}; // Use a temp var to get the values and push back
+	double temp, temp_run, temp_sr; // Use a temp var to get the values and push back
 
-		if (fileIN.is_open()) { 
+	if (fileIN.is_open()) { 
+		
+		while ( fileIN >> temp_run >> temp_sr >> temp) { // loop over lines in file
 			
-			while ( !fileIN.eof()) { // loop over lines in file
-				
-				fileIN >> temp;        // Add number to temp var
-				N_evt.push_back(temp);
-			}
-			
-			fileIN.close();
+			N_evt.push_back(temp);
 		}
+		
+		fileIN.close();
+	}
 
 }
 
@@ -250,33 +270,57 @@ void EventWeightReader::beginJob() {
 
 	// Create the TTree and add relavent branches
 	DataTree = tfs->make<TTree>("XSectionTree","XSectionTree");
-	DataTree->Branch("Sig",         &N_sig);
-	DataTree->Branch("Bkg",         &N_bkg);
-	DataTree->Branch("Sel",         &N_sel);
-	DataTree->Branch("Gen",         &N_gen);
-	DataTree->Branch("eff",         &Efficiency);
-	DataTree->Branch("MCXSec",      &MC_x_sec);
-	DataTree->Branch("DataXSec",    &Data_x_sec);
-	//DataTree->Branch("GenieNames",  &GenieNames);
-	
+	DataTree->Branch("Sig",         &temp_sig);
+	DataTree->Branch("Bkg",         &temp_bkg);
+	DataTree->Branch("Gen",         &temp_gen);
+	DataTree->Branch("eff",         &temp_eff);
+	DataTree->Branch("xsec",        &temp_xsec);
 	// Load in the file containing the event number for Signal_Generated, N_gen or Signal_Selected N_sig
 	if (DEBUG) std::cout << "\nNow reading in event files!" << std::endl;
 
 	// ++++++++++++++++++++ N_gen +++++++++++++++++++++++++++++
 	
-	ReadEvents("Gen_events.txt", N_gen_evt ); 
+	ReadEvents("generated_events.txt", N_gen_evt ); 
 
-	ReadEventList("sel.txt", N_sig_evt, N_bkg_evt, N_sel_evt ); 
+	ReadEventList("selected_events.txt", N_sig_evt, N_bkg_evt, N_sel_evt ); 
 
-	if (DEBUG) std::cout << "Size of Generated vector:  \t"<< N_gen_evt.size() - 1 << std::endl;
-	if (DEBUG) std::cout << "Size of signal vector:     \t"<< N_sig_evt.size() - 1 << std::endl;
-	if (DEBUG) std::cout << "Size of selected vector:   \t"<< N_sel_evt.size() - 1 << std::endl;
-	if (DEBUG) std::cout << "Size of background vector: \t"<< N_bkg_evt.size() - 1 << std::endl;
+	if (DEBUG) std::cout << "Size of Generated vector:  \t"<< N_gen_evt.size() << std::endl;
+	if (DEBUG) std::cout << "Size of signal vector:     \t"<< N_sig_evt.size() << std::endl;
+	if (DEBUG) std::cout << "Size of selected vector:   \t"<< N_sel_evt.size() << std::endl;
+	if (DEBUG) std::cout << "Size of background vector: \t"<< N_bkg_evt.size() << std::endl;
 
 	if (DEBUG) std::cout << "\nFinished reading in event files!\n" << std::endl;
 
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
-	std::cout << "WARNING!! Remember to change number of universes to correct amount otherwise this will segfault :("<<  std::endl;
+	std::cout << "Now creating the event list vector..."<<  std::endl;
+
+	for (unsigned int i = 0; i < labels_genie.size(); i++) {
+
+		N_gen.push_back(Event_List(labels_genie[i],"genie"));
+		N_sig.push_back(Event_List(labels_genie[i],"genie"));
+		N_bkg.push_back(Event_List(labels_genie[i],"genie"));
+		Data_x_sec.push_back(Event_List(labels_genie[i],"genie"));
+		Efficiency.push_back(Event_List(labels_genie[i],"genie"));
+	}
+
+	for (unsigned int i = 0; i < labels_model.size(); i++) {
+
+		N_gen.push_back(Event_List(labels_model[i],"model"));
+		N_sig.push_back(Event_List(labels_model[i],"model"));
+		N_bkg.push_back(Event_List(labels_model[i],"model"));
+		Data_x_sec.push_back(Event_List(labels_model[i],"model"));
+		Efficiency.push_back(Event_List(labels_model[i],"model"));
+	}
+
+	for (unsigned int i = 0; i < labels_reinteractions.size(); i++) {
+
+		N_gen.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
+		N_sig.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
+		N_bkg.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
+		Data_x_sec.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
+		Efficiency.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
+	}
+	std::cout << "Done creating the event list vector!"<<  std::endl;
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
 
 }
@@ -334,30 +378,25 @@ void EventWeightReader::analyze(art::Event const & e)
 		// Found event in the N_bkg vector and so add weights for this event
 		// AddWeights(N_bkg, Iterations, Universes, e);
 	}
-	else{
-		if (DEBUG) std::cout << "Unmatched Event\t" << std::endl;
-		tot_unmatched++;
-	}
-	
 
-total_in = tot_gen + tot_bkg;
+
+	total_in = tot_gen + tot_bkg;
 	
 }
 
 void EventWeightReader::endJob() {
 
-	// // Implementation of optional member function here.
-	// std::cout << "\nBeginning END JOB..." << std::endl;
+	// Implementation of optional member function here.
+	std::cout << "\nBeginning END JOB..." << std::endl;
 	
-	// std::cout << "\n=======================" << std::endl;
-	// std::cout << "Read in Events\n" << std::endl;
-	// std::cout << "=======================\n" << std::endl;
-	// std::cout << "\nN_gen:\t" << tot_gen << std::endl;
-	// std::cout << "\nN_sel:\t" << tot_sel << std::endl;
-	// std::cout << "\nN_sig:\t" << tot_sig << std::endl;
-	// std::cout << "\nN_bkg:\t" << tot_bkg << std::endl;
-	// std::cout << "\nTotal:\t" << total_in << std::endl;
-	// std::cout << "\nTotal Unmatched Events:\t" << tot_unmatched << std::endl;
+	std::cout << "\n=======================" << std::endl;
+	std::cout << "Read in Events\n" << std::endl;
+	std::cout << "=======================\n" << std::endl;
+	std::cout << "\nN_gen:\t" << tot_gen << std::endl;
+	std::cout << "\nN_sel:\t" << tot_sel << std::endl;
+	std::cout << "\nN_sig:\t" << tot_sig << std::endl;
+	std::cout << "\nN_bkg:\t" << tot_bkg << std::endl;
+	std::cout << "\nTotal:\t" << total_in << std::endl;
 
 	// std::cout << "\n=======================" << std::endl;
 	// std::cout << "CV Cross sections\n" << std::endl;
@@ -413,8 +452,16 @@ void EventWeightReader::endJob() {
 	// 	if (DEBUG) std::cout << "New Data X-section [10^-39 cm^2]\t" << Data_x_sec[i]/1e-39 << std::endl;
 		
 	// }
-	// DataTree->Fill();
 
+	for (unsigned int i=0; i < N_gen.size(); i++){
+		temp_gen  = N_gen[i];
+		temp_sig  = N_sig[i];
+		temp_bkg  = N_bkg[i];
+		temp_eff  = N_eff[i];
+		temp_xsec = N_xsec[i];
+		DataTree->Fill();
+	}
+	
 }
 
 DEFINE_ART_MODULE(EventWeightReader)

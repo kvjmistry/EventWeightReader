@@ -1,9 +1,13 @@
 art_make(
-         LIB_LIBRARIES larcorealg_Geometry
+         LIB_LIBRARIES 
+	 #larcorealg_Geometry
          larreco_RecoAlg_ClusterRecoUtil
          lardataobj_RecoBase
          ${ROOT_BASIC_LIB_LIST}
          ${ROOT_SPECTRUM}
+	
+	 LIBRARY_NAME
+	 uboonecode_uboone_EventWeightReader
 
          MODULE_LIBRARIES
                         larcore_Geometry_Geometry_service
@@ -21,7 +25,8 @@ art_make(
                         larcoreobj_SummaryData
                         lardata_ArtDataHelper
                         nutools_RandomUtils_NuRandomService_service
-			
+			uboonecode_uboone_EventWeightReader
+
                         ${LARRECO_LIB}
                         ${LARDATA_LIB}
                         ${ART_FRAMEWORK_CORE}

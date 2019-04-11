@@ -4,3 +4,8 @@
 *.pdf
 *.png
 *DS_Store*
+*.so
+*.o
+*.rootmap
+*.pcm
+uboonecode_uboone_EventWeightReader_dict.cxx
