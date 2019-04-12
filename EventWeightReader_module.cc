@@ -54,12 +54,12 @@
 #include "TMath.h"
 #include "TString.h"
 #include "TFile.h"
-
 #include <iostream>
 #include <fstream>
 
+// Other includes
 #include "Event_List.h"
-
+// -----------------------------------------------------------------------------------------------------
 class EventWeightReader;
 class EventWeightReader : public art::EDAnalyzer {
 public:
@@ -82,8 +82,8 @@ public:
 	void AddWeights(std::vector<Event_List> &N, art::Event const & e);
 	void ReadEvents(const char *filename, std::vector<int> &N_evt );
 	double CalcDataXSec(double sel, double bkg , double flux,
-                    double targets, double intime_cosmics_bkg, double intime_cosmic_scale_factor,
-                    double dirt, double dirt_scale_factor, double mc_scale_factor, double efficiency );
+					double targets, double intime_cosmics_bkg, double intime_cosmic_scale_factor,
+					double dirt, double dirt_scale_factor, double mc_scale_factor, double efficiency );
 
 private:
 
@@ -152,11 +152,8 @@ private:
 	
 	std::vector<std::string> labels_reinteractions { "reinteractions_proton", "reinteractions_piplus", "reinteractions_piminus" };
 	
-
 };
-
-
-
+// -----------------------------------------------------------------------------------------------------
 // Function to calculate the data cross section
 double EventWeightReader::CalcDataXSec(double sel, double bkg , double flux,
                     double targets, double intime_cosmics_bkg, double intime_cosmic_scale_factor,
@@ -180,9 +177,7 @@ double EventWeightReader::CalcDataXSec(double sel, double bkg , double flux,
     // return (sel - 129.974) / (efficiency * targets * flux); 
     return (sel - (intime_cosmics_bkg * intime_cosmic_scale_factor) - (dirt * dirt_scale_factor) - (bkg * mc_scale_factor)) / (efficiency * targets * flux);
 }
-
-
-
+// -----------------------------------------------------------------------------------------------------
 // A function that loops over all the parameter weights and universes and re-weights the desired events. 
 void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const & e){
 
@@ -215,7 +210,7 @@ void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const 
 		} // END loop over parameters
 	}
 }
-
+// -----------------------------------------------------------------------------------------------------
 // Function that reads in the event numbers from a text file and adds those event numbers to a vector. 
 void EventWeightReader::ReadEvents(const char *filename, std::vector<int> &N_evt ){
 	
@@ -241,7 +236,7 @@ void EventWeightReader::ReadEvents(const char *filename, std::vector<int> &N_evt
 	}
 
 }
-
+// -----------------------------------------------------------------------------------------------------
 // Same as Read events function, but now split the selected events into their new catagories. 
 void ReadEventList(const char *filename, std::vector<int> &N_sig_evt, std::vector<int> &N_bkg_evt, std::vector<int> &N_sel_evt ){
 
@@ -281,7 +276,7 @@ void ReadEventList(const char *filename, std::vector<int> &N_sig_evt, std::vecto
 		N_sel_evt.push_back(N_evtnum[i]);
 		
 		// Signal
-		if ((class_type[i].compare(0,6,"nue_cc") == 0 && class_type[i] != "nue_cc_out_fv" && class_type[i] != "nue_cc_mixed") || (class_type[i].compare(0,10,"nue_bar_cc") == 0  && class_type[i] != "nue_bar_mixed") ) {
+		if ((class_type[i].compare(0,6,"nue_cc") == 0 && class_type[i] != "nue_cc_out_fv" && class_type[i] != "nue_cc_mixed") || (class_type[i].compare(0,10,"nue_bar_cc") == 0 && class_type[i] != "nuebar_cc_out_fv" && class_type[i] != "nue_bar_mixed") ) {
 			N_sig_evt.push_back(N_evtnum[i]);
 		}
 		// Dirt
@@ -294,9 +289,9 @@ void ReadEventList(const char *filename, std::vector<int> &N_sig_evt, std::vecto
 	}
 
 }
-
+// -----------------------------------------------------------------------------------------------------
 EventWeightReader::EventWeightReader(fhicl::ParameterSet const & p) : EDAnalyzer(p) {}
-
+// -----------------------------------------------------------------------------------------------------
 void EventWeightReader::beginJob() {
 	
 	// Access ART's TFileService, which will handle histograms/trees/etc.
@@ -309,13 +304,10 @@ void EventWeightReader::beginJob() {
 	DataTree->Branch("Gen",         &temp_gen);
 	DataTree->Branch("eff",         &temp_eff);
 	DataTree->Branch("xsec",        &temp_xsec);
-	// Load in the file containing the event number for Signal_Generated, N_gen or Signal_Selected N_sig
-	if (DEBUG) std::cout << "\nNow reading in event files!" << std::endl;
-
-	// ++++++++++++++++++++ N_gen +++++++++++++++++++++++++++++
 	
+	// Load in the file containing the event number for Signal_Generated, N_gen or Signal_Selected N_sig
+	if (DEBUG) std::cout << "\nNow reading in event files!" << std::endl;	
 	ReadEvents("generated_events.txt", N_gen_evt ); 
-
 	ReadEventList("selected_events.txt", N_sig_evt, N_bkg_evt, N_sel_evt ); 
 
 	if (DEBUG) std::cout << "Size of Generated vector:  \t"<< N_gen_evt.size() << std::endl;
@@ -330,40 +322,47 @@ void EventWeightReader::beginJob() {
 
 	for (unsigned int i = 0; i < labels_genie.size(); i++) {
 
-		N_gen.push_back(Event_List(labels_genie[i],"genie"));
-		N_sig.push_back(Event_List(labels_genie[i],"genie"));
-		N_bkg.push_back(Event_List(labels_genie[i],"genie"));
-		Data_x_sec.push_back(Event_List(labels_genie[i],"genie"));
-		Efficiency.push_back(Event_List(labels_genie[i],"genie"));
+		N_gen.push_back(     Event_List(labels_genie[i], "genie"));
+		N_sig.push_back(     Event_List(labels_genie[i], "genie"));
+		N_bkg.push_back(     Event_List(labels_genie[i], "genie"));
+		Data_x_sec.push_back(Event_List(labels_genie[i], "genie"));
+		Efficiency.push_back(Event_List(labels_genie[i], "genie"));
 	}
 
 	for (unsigned int i = 0; i < labels_model.size(); i++) {
 
-		N_gen.push_back(Event_List(labels_model[i],"model"));
-		N_sig.push_back(Event_List(labels_model[i],"model"));
-		N_bkg.push_back(Event_List(labels_model[i],"model"));
-		Data_x_sec.push_back(Event_List(labels_model[i],"model"));
-		Efficiency.push_back(Event_List(labels_model[i],"model"));
+		N_gen.push_back(     Event_List(labels_model[i], "model"));
+		N_sig.push_back(     Event_List(labels_model[i], "model"));
+		N_bkg.push_back(     Event_List(labels_model[i], "model"));
+		Data_x_sec.push_back(Event_List(labels_model[i], "model"));
+		Efficiency.push_back(Event_List(labels_model[i], "model"));
 	}
 
 	for (unsigned int i = 0; i < labels_reinteractions.size(); i++) {
 
-		N_gen.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
-		N_sig.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
-		N_bkg.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
-		Data_x_sec.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
-		Efficiency.push_back(Event_List(labels_reinteractions[i],"reinteractions"));
+		N_gen.push_back(     Event_List(labels_reinteractions[i], "reinteractions"));
+		N_sig.push_back(     Event_List(labels_reinteractions[i], "reinteractions"));
+		N_bkg.push_back(     Event_List(labels_reinteractions[i], "reinteractions"));
+		Data_x_sec.push_back(Event_List(labels_reinteractions[i], "reinteractions"));
+		Efficiency.push_back(Event_List(labels_reinteractions[i], "reinteractions"));
 	}
 	std::cout << "Done creating the event list vector!"<<  std::endl;
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
 
 }
 void EventWeightReader::analyze(art::Event const & e) {
-	// Implementation of required member function here.
+	
 	// Determine event ID, run and subrun 
 	run =     e.id().run();
 	subrun =  e.id().subRun();
 	evt =     e.id().event();
+
+	int totalevents = N_gen_evt.size() + N_bkg_evt.size();
+	
+	// Reset counters if a new file is read in
+	if (Iterations == totalevents ) {
+		total_in = 0; tot_gen  = 0; tot_sel  = 0; tot_sig  = 0; tot_bkg  = 0; Iterations = 1;
+	}
 
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
 	std::cout << "Event processed:\t" << Iterations << std::endl;
@@ -415,7 +414,7 @@ void EventWeightReader::analyze(art::Event const & e) {
 	total_in = tot_gen + tot_bkg;
 	
 }
-
+// -----------------------------------------------------------------------------------------------------
 void EventWeightReader::endJob() {
 
 	// Implementation of optional member function here.
@@ -477,6 +476,7 @@ void EventWeightReader::endJob() {
 
 		}
 		
+		// Unravel the event list vector since having problems putting a std vector into the ttree
 		temp_gen  = N_gen[i];
 		temp_sig  = N_sig[i];
 		temp_bkg  = N_bkg[i];
@@ -486,5 +486,5 @@ void EventWeightReader::endJob() {
 	}
 
 }
-
+// -----------------------------------------------------------------------------------------------------
 DEFINE_ART_MODULE(EventWeightReader)
