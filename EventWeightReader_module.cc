@@ -150,7 +150,7 @@ private:
 	
 	std::vector<std::string> labels_model { "model_q0q3_ccmec", "model_q0q3_ccqe" };
 	
-	std::vector<std::string> labels_reinteractions { "reinteractions_proton", "reinteractions_piplus", "reinteractions_piminus" };
+	std::vector<std::string> labels_reinteractions { "reinteractions_proton", "reinteractions_piplus", "reinteractions_piminus", "reinteractions_all" };
 	
 };
 // -----------------------------------------------------------------------------------------------------

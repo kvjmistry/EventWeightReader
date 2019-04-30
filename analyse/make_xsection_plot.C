@@ -28,29 +28,6 @@ void make_xsection_plot(){
 	TFile* f;
 	TTree* xsectree;
 
-	TH1D *hCV_genie_Sig  = new TH1D("hCV_genie_Sig", "Genie Sig;; Percentage Error [%]",   34, 0, 34);
-	TH1D *hCV_genie_Bkg  = new TH1D("hCV_genie_Bkg", "Genie Bkg;; Percentage Error [%]",   34, 0, 34);
-	TH1D *hCV_genie_Gen  = new TH1D("hCV_genie_Gen", "Genie Gen;; Percentage Error [%]",   34, 0, 34);
-	TH1D *hCV_genie_eff  = new TH1D("hCV_genie_eff", "Genie Eff;; Percentage Error [%]",   34, 0, 34);
-	TH1D *hCV_genie_xsec = new TH1D("hCV_genie_xsec","Genie X Sec;; Percentage Error [%]", 34, 0, 34);
-
-	TCanvas * c_genie_Sig  = new TCanvas();
-	TCanvas * c_genie_Bkg  = new TCanvas();
-	TCanvas * c_genie_Gen  = new TCanvas();
-	TCanvas * c_genie_eff  = new TCanvas();
-	TCanvas * c_genie_xsec = new TCanvas();
-	
-	TH1D *hCV_other_Sig  = new TH1D("hCV_other_Sig","Other Sig;; Percentage Error [%]",    5, 0, 5);
-	TH1D *hCV_other_Bkg  = new TH1D("hCV_other_Bkg","Other Bkg;; Percentage Error [%]",    5, 0, 5);
-	TH1D *hCV_other_Gen  = new TH1D("hCV_other_Gen","Other Gen;; Percentage Error [%]",    5, 0, 5);
-	TH1D *hCV_other_eff  = new TH1D("hCV_other_eff","Other Eff;; Percentage Error [%]",    5, 0, 5);
-	TH1D *hCV_other_xsec = new TH1D("hCV_other_xsec","Other X Sec;; Percentage Error [%]", 5, 0, 5);
-
-	TCanvas * c_other_Sig  = new TCanvas();
-	TCanvas * c_other_Bkg  = new TCanvas();
-	TCanvas * c_other_Gen  = new TCanvas();
-	TCanvas * c_other_eff  = new TCanvas();
-	TCanvas * c_other_xsec = new TCanvas();
 
 	// First read in the ttree and loop over the entries
 	bool boolfile  = GetFile(f , "../NuMIEventWeight.root"); if (boolfile == false) gSystem->Exit(0); // File with the weights
@@ -71,12 +48,12 @@ void make_xsection_plot(){
 	const int tree_total_entries = xsectree->GetEntries();
 	std::cout << "Total Labels: " << tree_total_entries << std::endl;
 
-	// CV -- will want to remove the hardcoded values
-	double CV_Sig  = 622;
-	double CV_Bkg  = 427;
-	double CV_Gen  = 7130;
-	double CV_eff  = 0.0872;
-	double CV_xsec = 4.5e-39;
+	// CV -- should remove the hardcoded values
+	double CV_Sig  = 642;
+	double CV_Bkg  = 356;
+	double CV_Gen  = 7103;
+	double CV_eff  = 0.0903843;
+	double CV_xsec = 4.67e-39;
 
 
 	int num_genie = 0;

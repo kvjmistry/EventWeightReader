@@ -1,3 +1,30 @@
+
+// Histogram and canvas definitions
+TH1D *hCV_genie_Sig  = new TH1D("hCV_genie_Sig", "Genie Sig;; Percentage Error [%]",   34, 0, 34);
+TH1D *hCV_genie_Bkg  = new TH1D("hCV_genie_Bkg", "Genie Bkg;; Percentage Error [%]",   34, 0, 34);
+TH1D *hCV_genie_Gen  = new TH1D("hCV_genie_Gen", "Genie Gen;; Percentage Error [%]",   34, 0, 34);
+TH1D *hCV_genie_eff  = new TH1D("hCV_genie_eff", "Genie Eff;; Percentage Error [%]",   34, 0, 34);
+TH1D *hCV_genie_xsec = new TH1D("hCV_genie_xsec","Genie X Sec;; Percentage Error [%]", 34, 0, 34);
+
+TCanvas * c_genie_Sig  = new TCanvas();
+TCanvas * c_genie_Bkg  = new TCanvas();
+TCanvas * c_genie_Gen  = new TCanvas();
+TCanvas * c_genie_eff  = new TCanvas();
+TCanvas * c_genie_xsec = new TCanvas();
+
+TH1D *hCV_other_Sig  = new TH1D("hCV_other_Sig","Other Sig;; Percentage Error [%]",    5, 0, 5);
+TH1D *hCV_other_Bkg  = new TH1D("hCV_other_Bkg","Other Bkg;; Percentage Error [%]",    5, 0, 5);
+TH1D *hCV_other_Gen  = new TH1D("hCV_other_Gen","Other Gen;; Percentage Error [%]",    5, 0, 5);
+TH1D *hCV_other_eff  = new TH1D("hCV_other_eff","Other Eff;; Percentage Error [%]",    5, 0, 5);
+TH1D *hCV_other_xsec = new TH1D("hCV_other_xsec","Other X Sec;; Percentage Error [%]", 5, 0, 5);
+
+TCanvas * c_other_Sig  = new TCanvas();
+TCanvas * c_other_Bkg  = new TCanvas();
+TCanvas * c_other_Gen  = new TCanvas();
+TCanvas * c_other_eff  = new TCanvas();
+TCanvas * c_other_xsec = new TCanvas();
+
+
 // ------------------------------------------------------------------------------------------------------------
 bool GetTree(TFile* f, TTree* &T, TString string){
         T = (TTree*)(f->Get(string));
