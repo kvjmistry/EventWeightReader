@@ -12,11 +12,11 @@ TCanvas * c_genie_Gen  = new TCanvas();
 TCanvas * c_genie_eff  = new TCanvas();
 TCanvas * c_genie_xsec = new TCanvas();
 
-TH1D *hCV_other_Sig  = new TH1D("hCV_other_Sig","Other Sig;; Percentage Error [%]",    5, 0, 5);
-TH1D *hCV_other_Bkg  = new TH1D("hCV_other_Bkg","Other Bkg;; Percentage Error [%]",    5, 0, 5);
-TH1D *hCV_other_Gen  = new TH1D("hCV_other_Gen","Other Gen;; Percentage Error [%]",    5, 0, 5);
-TH1D *hCV_other_eff  = new TH1D("hCV_other_eff","Other Eff;; Percentage Error [%]",    5, 0, 5);
-TH1D *hCV_other_xsec = new TH1D("hCV_other_xsec","Other X Sec;; Percentage Error [%]", 5, 0, 5);
+TH1D *hCV_other_Sig  = new TH1D("hCV_other_Sig","Other Sig;; Percentage Error [%]",    6, 0, 6);
+TH1D *hCV_other_Bkg  = new TH1D("hCV_other_Bkg","Other Bkg;; Percentage Error [%]",    6, 0, 6);
+TH1D *hCV_other_Gen  = new TH1D("hCV_other_Gen","Other Gen;; Percentage Error [%]",    6, 0, 6);
+TH1D *hCV_other_eff  = new TH1D("hCV_other_eff","Other Eff;; Percentage Error [%]",    6, 0, 6);
+TH1D *hCV_other_xsec = new TH1D("hCV_other_xsec","Other X Sec;; Percentage Error [%]", 6, 0, 6);
 
 TCanvas * c_other_Sig  = new TCanvas();
 TCanvas * c_other_Bkg  = new TCanvas();

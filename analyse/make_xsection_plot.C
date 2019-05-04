@@ -61,7 +61,7 @@ void make_xsection_plot(){
 	// ----------------------
 	//		Event loop
 	// ----------------------
-	std::cout << "Starting loop over the labels..." << std::endl;
+	std::cout << "Starting loop over the reweighters..." << std::endl;
 	for (int label = 0; label < tree_total_entries; label++){
 			xsectree->GetEntry(label);
 

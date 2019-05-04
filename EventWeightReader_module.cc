@@ -79,7 +79,7 @@ public:
 	// Selected optional functions.
 	void beginJob() override;
 	void endJob() override;
-	void AddWeights(std::vector<Event_List> &N, art::Event const & e);
+	void AddWeights(std::vector<Event_List> &N, art::Event const & e, bool &resize_flag);
 	void ReadEvents(const char *filename, std::vector<int> &N_evt );
 	double CalcDataXSec(double sel, double bkg , double flux,
 					double targets, double intime_cosmics_bkg, double intime_cosmic_scale_factor,
@@ -114,7 +114,7 @@ private:
 	const double targets_data{3.4723e+31};
 	
 	// DATA
-	const double intime_cosmics_bkg{83};              // Number of intime cosmics for background
+	const double intime_cosmics_bkg{81};              // Number of intime cosmics for background
 	const double num_selected_data{214};              // The number of selected events in data
 	const double intime_cosmic_scale_factor{1.0154};  // Scale factor to apply to the intime cosimic background
 	const double mc_scale_factor{0.1301};             // Scale factor to apply to the mc background
@@ -122,36 +122,41 @@ private:
 	const double dirt {30};
 
 	// DEBUG
-	bool DEBUG{true};
+	bool DEBUG{false};
 
 	// TTree
 	TTree *DataTree;
 
 	// labels
 	std::vector<std::string> labels_genie {
-		"genie_qema",
+		"genie_qema",            "genie_qevec",
 		"genie_ncelAxial",       "genie_ncelEta",
 		"genie_ccresAxial",      "genie_ccresVector",
 		"genie_ncresAxial",      "genie_ncresVector",
 		"genie_cohMA",           "genie_cohR0",
 		"genie_NonResRvp1pi",    "genie_NonResRvbarp1pi",
 		"genie_NonResRvp2pi",    "genie_NonResRvbarp2pi",
-		"genie_ResDecayGamma" ,  "genie_ResDecayTheta",
+		"genie_ResDecayGamma" ,  "genie_ResDecayTheta",   "genie_ResDecayEta",
 		"genie_NC",
 		"genie_DISAth",          "genie_DISBth",          "genie_DISCv1u",       "genie_DISCv2u",
 		// "genie_AGKYxF",       "genie_AGKYpT",          // removed due to just giving back weights of 1
 		"genie_FormZone",
-		"genie_FermiGasModelKf",
+		"genie_FermiGasModelKf", "genie_FermiGasModelSf",
 		"genie_IntraNukeNmfp",   "genie_IntraNukeNcex",   "genie_IntraNukeNel",
 		"genie_IntraNukeNinel",  "genie_IntraNukeNabs",   "genie_IntraNukeNpi",
 		"genie_IntraNukePImfp",  "genie_IntraNukePIcex",  "genie_IntraNukePIel",
-		"genie_IntraNukePIinel", "genie_IntraNukePIabs",  "genie_IntraNukePIpi"
+		"genie_IntraNukePIinel", "genie_IntraNukePIabs",  "genie_IntraNukePIpi",
+		"genie_all"
 	};
 	
 	std::vector<std::string> labels_model { "model_q0q3_ccmec", "model_q0q3_ccqe" };
 	
 	std::vector<std::string> labels_reinteractions { "reinteractions_proton", "reinteractions_piplus", "reinteractions_piminus", "reinteractions_all" };
 	
+	bool resize_flag_Ngen{false}, resize_flag_Nsig{false}, resize_flag_Nbkg{false}; // flags for resizing
+
+	int N_size;
+
 };
 // -----------------------------------------------------------------------------------------------------
 // Function to calculate the data cross section
@@ -179,7 +184,7 @@ double EventWeightReader::CalcDataXSec(double sel, double bkg , double flux,
 }
 // -----------------------------------------------------------------------------------------------------
 // A function that loops over all the parameter weights and universes and re-weights the desired events. 
-void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const & e){
+void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const & e, bool &resize_flag){
 
 	auto GenieEW_Handle = e.getValidHandle<std::vector<evwgh::MCEventWeight>>("mcweight"); // Request the mcweight data product
 
@@ -187,28 +192,32 @@ void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const 
 	
 	std::vector<evwgh::MCEventWeight> const& GenieEWvec(*GenieEW_Handle);
 
-	//std::cout << "Size of genueEWvec: " <<  GenieEWvec.size() << "  If this size is not equal to 1 then we have a problem!!!"<< std::endl;
-
 	for (evwgh::MCEventWeight const& GenieEW: GenieEWvec) weights = GenieEW.fWeight; // Grab the weights 
 
-	// Loop over the labels
+	// Loop over the labels e.g qevec, qema, all etc.
 	for (unsigned int j=0; j < N.size(); j++){
 		
-		// Loop over the labels in the event weight object
+		// Loop over the labels in the EventWeight object
 		for (auto const& it : weights) {
 				
-			if (it.first.find(N.at(j).label.c_str()) != std::string::npos) { // match up the correct parameter
+			if (it.first.find(N.at(j).label.c_str()) != std::string::npos) { // Match up the labels from input list and EventWeight
 
-				// Insert some debug info to see if what we are doing here is correct
-				// std::cout << it.first << "  " << N.at(j).label << std::endl;
+				std::cout << "N.at(j).label.c_str():\t" << N.at(j).label.c_str() << std::endl;
 
-				if (N.at(j).N_reweight.size() == 0) N.at(j).N_reweight.resize(it.second.size()); // resize to the number of universes if we havent already done so
+				// Do this once per file
+				if (resize_flag == false){ 
+					N_size = N.at(j).N_reweight.size();                   // The current size (the number of universes already ran over)
+					N.at(j).N_reweight.resize(N_size + it.second.size()); // resize to the number of universes if we havent already done so
+				}
 			
 				// Loop over each universe for a parameter and weight the event
-				for (unsigned int i = 0; i < it.second.size(); i++) N.at(j).N_reweight.at(i) += it.second.at(i) ; // Weight the event
+				for (unsigned int i = N_size; i < N_size + it.second.size(); i++)
+					N.at(j).N_reweight.at(i) += it.second.at(i - N_size) ; // Weight the event
+			
 			}
 		} // END loop over parameters
 	}
+	resize_flag = true;
 }
 // -----------------------------------------------------------------------------------------------------
 // Function that reads in the event numbers from a text file and adds those event numbers to a vector. 
@@ -362,6 +371,7 @@ void EventWeightReader::analyze(art::Event const & e) {
 	// Reset counters if a new file is read in
 	if (Iterations == totalevents ) {
 		total_in = 0; tot_gen  = 0; tot_sel  = 0; tot_sig  = 0; tot_bkg  = 0; Iterations = 1;
+		resize_flag_Ngen = false; resize_flag_Nsig = false; resize_flag_Nbkg = false;
 	}
 
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
@@ -378,7 +388,7 @@ void EventWeightReader::analyze(art::Event const & e) {
 		tot_gen++;
 
 		// Found event in the N_gen vector and so add weights for this event
-		AddWeights(N_gen, e);
+		AddWeights(N_gen, e, resize_flag_Ngen);
 	}
 	// ++++++++++++++++++++ N_sel +++++++++++++++++++++++++++++
 	if ( std::find( N_sel_evt.begin(), N_sel_evt.end(), evt) != N_sel_evt.end()){
@@ -398,7 +408,7 @@ void EventWeightReader::analyze(art::Event const & e) {
 		tot_sig++;
 
 		// Found event in the N_sig vector and so add weights for this event
-		AddWeights(N_sig, e);
+		AddWeights(N_sig, e, resize_flag_Nsig);
 	}
 	// ++++++++++++++++++++ N_bkg +++++++++++++++++++++++++++++
 	if ( std::find( N_bkg_evt.begin(), N_bkg_evt.end(), evt) != N_bkg_evt.end()){
@@ -408,7 +418,7 @@ void EventWeightReader::analyze(art::Event const & e) {
 		tot_bkg++;
 
 		// Found event in the N_bkg vector and so add weights for this event
-		AddWeights(N_bkg, e);
+		AddWeights(N_bkg, e, resize_flag_Nbkg);
 	}
 
 	total_in = tot_gen + tot_bkg;
@@ -441,20 +451,17 @@ void EventWeightReader::endJob() {
 	std::cout << "\n=======================" << std::endl;
 	std::cout << "Now Re-Calculating cross sections" << std::endl;
 	std::cout << "=======================\n" << std::endl;
-
 	
-	Data_x_sec.resize(N_gen.size());
-	Efficiency.resize(N_gen.size());
-
 	// Loop over all the reweighters
 	for (unsigned int i{0}; i < N_gen.size(); i++){
 		
+		std::cout << "Universes in label "<< N_gen.at(i).label <<":\t" << N_gen.at(i).N_reweight.size()<< std::endl;
+
 		// Resizing
 		if (Data_x_sec.at(i).N_reweight.size() == 0) Data_x_sec.at(i).N_reweight.resize(N_gen.at(i).N_reweight.size()); 
 		if (Efficiency.at(i).N_reweight.size() == 0) Efficiency.at(i).N_reweight.resize(N_gen.at(i).N_reweight.size()); 
 
 		// loop over all the universes
-
 		for (unsigned int j = 0; j < N_gen.at(i).N_reweight.size(); j++){
 			// Now we want to calculate the new efficiency
 			Efficiency.at(i).N_reweight.at(j) = N_sig.at(i).N_reweight.at(j) / (N_gen.at(i).N_reweight.at(j) + 4);
@@ -464,25 +471,25 @@ void EventWeightReader::endJob() {
 
 			if (DEBUG) std::cout << "\n+++++++\nEfficiency\t" << Efficiency.at(i).N_reweight.at(j) << std::endl;
 
-			std::cout << "\nReweighter\t" << N_gen.at(i).reweighter << std::endl;
-			std::cout << "\nLabel:\t" << N_gen.at(i).label << std::endl;
-			std::cout << "\nUniverse:\t" << j << std::endl;
-			std::cout << "\nN_gen:\t" << N_gen.at(i).N_reweight.at(j) + 4 << std::endl;
-			std::cout << "N_sel:\t" << num_selected_data << std::endl;
-			std::cout << "N_sig:\t" << N_sig.at(i).N_reweight.at(j) << std::endl;
-			std::cout << "N_bkg:\t" <<N_bkg.at(i).N_reweight.at(j) << "\n"<< std::endl;
+			if (DEBUG) std::cout << "\nReweighter\t" << N_gen.at(i).reweighter << std::endl;
+			if (DEBUG) std::cout << "\nLabel:\t" << N_gen.at(i).label << std::endl;
+			if (DEBUG) std::cout << "\nUniverse:\t" << j + 1 << std::endl;
+			if (DEBUG) std::cout << "\nN_gen:\t" << N_gen.at(i).N_reweight.at(j) + 4 << std::endl;
+			if (DEBUG) std::cout << "N_sel:\t" << num_selected_data << std::endl;
+			if (DEBUG) std::cout << "N_sig:\t" << N_sig.at(i).N_reweight.at(j) << std::endl;
+			if (DEBUG) std::cout << "N_bkg:\t" <<N_bkg.at(i).N_reweight.at(j) << "\n"<< std::endl;
 
 			if (DEBUG) std::cout << "New Data X-section [10^-39 cm^2]\t" << Data_x_sec.at(i).N_reweight.at(j)/1e-39 << std::endl;
 
 		}
-		
 		// Unravel the event list vector since having problems putting a std vector into the ttree
-		temp_gen  = N_gen[i];
-		temp_sig  = N_sig[i];
-		temp_bkg  = N_bkg[i];
-		temp_eff  = Efficiency[i];
-		temp_xsec = Data_x_sec[i];
+		temp_gen  = N_gen.at(i);
+		temp_sig  = N_sig.at(i);
+		temp_bkg  = N_bkg.at(i);
+		temp_eff  = Efficiency.at(i);
+		temp_xsec = Data_x_sec.at(i);
 		DataTree->Fill();
+		
 	}
 
 }
