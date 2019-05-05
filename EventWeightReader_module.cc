@@ -204,15 +204,35 @@ void EventWeightReader::AddWeights(std::vector<Event_List> &N, art::Event const 
 
 				std::cout << "N.at(j).label.c_str():\t" << N.at(j).label.c_str() << std::endl;
 
-				// Do this once per file
-				if (resize_flag == false){ 
-					N_size = N.at(j).N_reweight.size();                   // The current size (the number of universes already ran over)
-					N.at(j).N_reweight.resize(N_size + it.second.size()); // resize to the number of universes if we havent already done so
+				// unisim
+				if (it.second.size() == 2 && N.at(j).mode == "unisim"){
+					// std::cout << "unisim input!" << std::endl;
+
+					// Do this once per file
+					if (resize_flag == false){ 
+						N_size = N.at(j).N_reweight.size();                   // The current size (the number of universes already ran over)
+						N.at(j).N_reweight.resize(N_size + it.second.size()); // resize to the number of universes if we havent already done so
+					}
+
+					// Loop over each universe for a parameter and weight the event
+					for (unsigned int i = N_size; i < N_size + it.second.size(); i++)
+						N.at(j).N_reweight.at(i) += it.second.at(i - N_size) ; // Weight the event
+
 				}
-			
-				// Loop over each universe for a parameter and weight the event
-				for (unsigned int i = N_size; i < N_size + it.second.size(); i++)
-					N.at(j).N_reweight.at(i) += it.second.at(i - N_size) ; // Weight the event
+				// mutisim
+				if (it.second.size() != 2 && N.at(j).mode == "multisim"){
+					// std::cout << "multisim input!" << std::endl;
+					// Do this once per file
+					if (resize_flag == false){ 
+						N_size = N.at(j).N_reweight.size();                   // The current size (the number of universes already ran over)
+						N.at(j).N_reweight.resize(N_size + it.second.size()); // resize to the number of universes if we havent already done so
+					}
+				
+					// Loop over each universe for a parameter and weight the event
+					for (unsigned int i = N_size; i < N_size + it.second.size(); i++)
+						N.at(j).N_reweight.at(i) += it.second.at(i - N_size) ; // Weight the event
+
+				}
 			
 			}
 		} // END loop over parameters
@@ -331,29 +351,37 @@ void EventWeightReader::beginJob() {
 
 	for (unsigned int i = 0; i < labels_genie.size(); i++) {
 
-		N_gen.push_back(     Event_List(labels_genie[i], "genie"));
-		N_sig.push_back(     Event_List(labels_genie[i], "genie"));
-		N_bkg.push_back(     Event_List(labels_genie[i], "genie"));
-		Data_x_sec.push_back(Event_List(labels_genie[i], "genie"));
-		Efficiency.push_back(Event_List(labels_genie[i], "genie"));
+		// multisims
+		N_gen.push_back(     Event_List(labels_genie[i], "genie", "multisim"));
+		N_sig.push_back(     Event_List(labels_genie[i], "genie", "multisim"));
+		N_bkg.push_back(     Event_List(labels_genie[i], "genie", "multisim"));
+		Data_x_sec.push_back(Event_List(labels_genie[i], "genie", "multisim"));
+		Efficiency.push_back(Event_List(labels_genie[i], "genie", "multisim"));
+
+		// unisims
+		N_gen.push_back(     Event_List(labels_genie[i], "genie", "unisim"));
+		N_sig.push_back(     Event_List(labels_genie[i], "genie", "unisim"));
+		N_bkg.push_back(     Event_List(labels_genie[i], "genie", "unisim"));
+		Data_x_sec.push_back(Event_List(labels_genie[i], "genie", "unisim"));
+		Efficiency.push_back(Event_List(labels_genie[i], "genie", "unisim"));
 	}
 
 	for (unsigned int i = 0; i < labels_model.size(); i++) {
 
-		N_gen.push_back(     Event_List(labels_model[i], "model"));
-		N_sig.push_back(     Event_List(labels_model[i], "model"));
-		N_bkg.push_back(     Event_List(labels_model[i], "model"));
-		Data_x_sec.push_back(Event_List(labels_model[i], "model"));
-		Efficiency.push_back(Event_List(labels_model[i], "model"));
+		N_gen.push_back(     Event_List(labels_model[i], "model", "multisim"));
+		N_sig.push_back(     Event_List(labels_model[i], "model", "multisim"));
+		N_bkg.push_back(     Event_List(labels_model[i], "model", "multisim"));
+		Data_x_sec.push_back(Event_List(labels_model[i], "model", "multisim"));
+		Efficiency.push_back(Event_List(labels_model[i], "model", "multisim"));
 	}
 
 	for (unsigned int i = 0; i < labels_reinteractions.size(); i++) {
 
-		N_gen.push_back(     Event_List(labels_reinteractions[i], "reinteractions"));
-		N_sig.push_back(     Event_List(labels_reinteractions[i], "reinteractions"));
-		N_bkg.push_back(     Event_List(labels_reinteractions[i], "reinteractions"));
-		Data_x_sec.push_back(Event_List(labels_reinteractions[i], "reinteractions"));
-		Efficiency.push_back(Event_List(labels_reinteractions[i], "reinteractions"));
+		N_gen.push_back(     Event_List(labels_reinteractions[i], "reinteractions", "multisim"));
+		N_sig.push_back(     Event_List(labels_reinteractions[i], "reinteractions", "multisim"));
+		N_bkg.push_back(     Event_List(labels_reinteractions[i], "reinteractions", "multisim"));
+		Data_x_sec.push_back(Event_List(labels_reinteractions[i], "reinteractions", "multisim"));
+		Efficiency.push_back(Event_List(labels_reinteractions[i], "reinteractions", "multisim"));
 	}
 	std::cout << "Done creating the event list vector!"<<  std::endl;
 	std::cout << "++++++++++++++++++++++++++++++++++" << std::endl;
@@ -455,7 +483,7 @@ void EventWeightReader::endJob() {
 	// Loop over all the reweighters
 	for (unsigned int i{0}; i < N_gen.size(); i++){
 		
-		std::cout << "Universes in label "<< N_gen.at(i).label <<":\t" << N_gen.at(i).N_reweight.size()<< std::endl;
+		std::cout << "Universes in label "<< N_gen.at(i).label <<":\t" << N_gen.at(i).N_reweight.size() << " (" << N_gen.at(i).mode << ")" << std::endl;
 
 		// Resizing
 		if (Data_x_sec.at(i).N_reweight.size() == 0) Data_x_sec.at(i).N_reweight.resize(N_gen.at(i).N_reweight.size()); 
