@@ -9,3 +9,4 @@
 *.rootmap
 *.pcm
 uboonecode_uboone_EventWeightReader_dict.cxx
+gmon.out

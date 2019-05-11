@@ -122,7 +122,7 @@ private:
 	const double dirt {30};
 
 	// DEBUG
-	bool DEBUG{false};
+	bool DEBUG{true};
 
 	// TTree
 	TTree *DataTree;
@@ -470,7 +470,7 @@ void EventWeightReader::endJob() {
 	std::cout << "\n=======================" << std::endl;
 	std::cout << "CV Cross sections\n" << std::endl;
 	std::cout << "=======================\n" << std::endl;
-	double efficiency = 0.0904;
+	double efficiency = 0.0903843;
 	double bkg = 356;
 	std::cout << "\nCV Data X Sec:\t" <<
 	 CalcDataXSec(num_selected_data, bkg , flux_data, targets_data, intime_cosmics_bkg, intime_cosmic_scale_factor, dirt, dirt_scale_factor, mc_scale_factor, efficiency )	

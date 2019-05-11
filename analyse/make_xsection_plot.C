@@ -51,7 +51,8 @@ void make_xsection_plot(){
 	double CV_Bkg  = 356;
 	double CV_Gen  = 7103;
 	double CV_eff  = 0.0903843;
-	double CV_xsec = 4.67e-39;
+	// double CV_xsec = 4.67e-39;
+	double CV_xsec = 4.70033e-39;
 
 	double Err_Sig,  Err_Sig_p1sig,  Err_Sig_m1sig;
 	double Err_Bkg,  Err_Bkg_p1sig,  Err_Bkg_m1sig;
@@ -61,7 +62,7 @@ void make_xsection_plot(){
 
 	int n_uni_genie, n_uni_model, n_uni_reinteractions;
 
-	int num_genie = 0;
+	int num_interactions{1}, num_genie{1};
 
 	// ----------------------
 	//		Event loop
@@ -77,6 +78,14 @@ void make_xsection_plot(){
 				Gen  -> label.erase(0,6);
 				eff  -> label.erase(0,6);
 				xsec -> label.erase(0,6);
+			}
+
+			if ( Gen -> label == "all" ) {
+				Sig  -> label =  "All";
+				Bkg  -> label =  "All";
+				Gen  -> label =  "All";
+				eff  -> label =  "All";
+				xsec -> label =  "All";
 			}
 			
 			std::cout << "-----------------------------"<< std::endl;
@@ -127,27 +136,50 @@ void make_xsection_plot(){
 
 			// GENIE
 			if ( Gen -> reweighter == "genie"){
-				num_genie+=2; // Use this to get the correct bin index in the interaction params to set the bin error
 				
 				// Multisim
 				if (Gen -> mode == "multisim"){	
 					hCV_genie_Sig->Fill(Sig -> label.c_str(), 0);
-					hCV_genie_Sig->SetBinError(label, 100 * Err_Sig / CV_Sig );
+					hCV_genie_Sig->SetBinError(num_genie, 100 * Err_Sig / CV_Sig );
 
 					hCV_genie_Bkg->Fill(Bkg -> label.c_str(), 0);
-					hCV_genie_Bkg->SetBinError(label, 100 * Err_Bkg / CV_Bkg );
+					hCV_genie_Bkg->SetBinError(num_genie, 100 * Err_Bkg / CV_Bkg );
 
 					hCV_genie_Gen->Fill(Gen -> label.c_str(), 0);
-					hCV_genie_Gen->SetBinError(label, 100 * Err_Gen / CV_Gen );
+					hCV_genie_Gen->SetBinError(num_genie, 100 * Err_Gen / CV_Gen );
 
 					hCV_genie_eff->Fill(eff -> label.c_str(), 0);
-					hCV_genie_eff->SetBinError(label, 100 * Err_eff / CV_eff );
+					hCV_genie_eff->SetBinError(num_genie, 100 * Err_eff / CV_eff );
 
 					hCV_genie_xsec->Fill(xsec -> label.c_str(), 0);
-					hCV_genie_xsec->SetBinError(label, 100 * Err_xsec / CV_xsec );
+					hCV_genie_xsec->SetBinError(num_genie, 100 * Err_xsec / CV_xsec );
+					num_genie++;
+
+					// If "all" case, there is no unisim, so fill a blank to align the histograms properly
+					if (Sig -> label == "All"){
+						hCV_genie_Sig_p1sig->Fill(Sig -> label.c_str(), 0);
+						hCV_genie_Sig_m1sig->Fill(Sig -> label.c_str(), 0);
+
+						hCV_genie_Bkg_p1sig->Fill(Bkg -> label.c_str(), 0);
+						hCV_genie_Bkg_m1sig->Fill(Bkg -> label.c_str(), 0);
+
+						hCV_genie_Gen_p1sig->Fill(Gen -> label.c_str(), 0);
+						hCV_genie_Gen_m1sig->Fill(Gen -> label.c_str(), 0);
+
+						hCV_genie_eff_p1sig->Fill(eff -> label.c_str(), 0);
+						hCV_genie_eff_m1sig->Fill(eff -> label.c_str(), 0);
+
+						hCV_genie_xsec_p1sig->Fill(xsec -> label.c_str(),0);
+						hCV_genie_xsec_m1sig->Fill(xsec -> label.c_str(),0);
+
+					}
 				}
 				// Unisim
 				else {
+
+					// We dont have qema and qevec for multisim yet so skip for now
+					// if (Sig -> label == "qema" || Sig -> label == "qevec") continue;
+
 					hCV_genie_Sig_p1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_p1sig / CV_Sig);
 					hCV_genie_Sig_m1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_m1sig / CV_Sig);
 
@@ -165,24 +197,27 @@ void make_xsection_plot(){
 
 				}
 
+
 			}
 			// Interaction
 			else {
 				// multisim
+
 				hCV_interaction_Sig->Fill(Sig -> label.c_str(), 0);
-				hCV_interaction_Sig->SetBinError(label - num_genie + 1, 100 * Err_Sig / CV_Sig );
+				hCV_interaction_Sig->SetBinError(num_interactions, 100 * Err_Sig / CV_Sig );
 
 				hCV_interaction_Bkg->Fill(Bkg -> label.c_str(), 0);
-				hCV_interaction_Bkg->SetBinError(label - num_genie + 1, 100 * Err_Bkg / CV_Bkg );
+				hCV_interaction_Bkg->SetBinError(num_interactions, 100 * Err_Bkg / CV_Bkg );
 
 				hCV_interaction_Gen->Fill(Gen -> label.c_str(), 0);
-				hCV_interaction_Gen->SetBinError(label - num_genie + 1, 100 * Err_Gen / CV_Gen );
+				hCV_interaction_Gen->SetBinError(num_interactions, 100 * Err_Gen / CV_Gen );
 
 				hCV_interaction_eff->Fill(eff -> label.c_str(), 0);
-				hCV_interaction_eff->SetBinError(label - num_genie + 1, 100 * Err_eff / CV_eff );
+				hCV_interaction_eff->SetBinError(num_interactions, 100 * Err_eff / CV_eff );
 
 				hCV_interaction_xsec->Fill(xsec -> label.c_str(), 0);
-				hCV_interaction_xsec->SetBinError(label - num_genie + 1, 100 * Err_xsec / CV_xsec );
+				hCV_interaction_xsec->SetBinError(num_interactions, 100 * Err_xsec / CV_xsec );
+				num_interactions++;
 
 			}
 

@@ -94,7 +94,7 @@ void hist_options(TCanvas* c, TH1D* msim, TH1D* p1sig, TH1D* m1sig, double axis_
         c ->cd();
 	gPad->SetBottomMargin(0.2);
 
-        TLegend *legend = new TLegend(0.15,0.75,0.3,0.85);
+        TLegend *legend = new TLegend(0.15, 0.75, 0.3, 0.85);
 	legend->AddEntry(p1sig ,"+1 #sigma","l");
 	legend->AddEntry(m1sig, "-1 #sigma","l");
         legend->AddEntry(msim,  Form("%i Univ Multisim STD", n_uni),"e");
@@ -130,7 +130,7 @@ void hist_options(TCanvas* c, TH1D* msim, double axis_range, int n_uni_model, in
         c ->cd();
 	gPad->SetBottomMargin(0.25);
 
-        TLegend *legend = new TLegend(0.55,0.75,0.85,0.85);
+        TLegend *legend = new TLegend(0.55, 0.75, 0.85, 0.85);
         legend->AddEntry(msim,  Form("CCMEC/CCQE: %i Univ Multisim STD", n_uni_model),"e");
         legend->AddEntry(msim,  Form("Reinteraction: %i Univ Multisim STD", n_uni_reint),"e");
         legend->SetTextFont(62);

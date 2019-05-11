@@ -6,7 +6,7 @@ You also need a txt file which contains the event numbers of the reweighted even
 
 The output of the module is a root file which contains an Event_list class which contains all the information needed to get the systematic uncertainty. Once you have this file, run the make_xsection_plot.C root macro to take a look at the systematics. 
   
-Before running, you will need to create the event_list library by running make from the `make` file  
+Before running, you will need to create the event_list library by running make from the `make` file and building larsoft as usual  
 
 commands to run
 `lar -c run_EventWeightReader.fcl /uboone/data/users/kmistry/work/NueXSection_Outputs/eventweight/v2/genie/filtered_eventweight_genie_multisim_250Univ_individual.root`   
