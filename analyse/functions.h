@@ -36,6 +36,9 @@ TCanvas * c_interaction_Gen  = new TCanvas();
 TCanvas * c_interaction_eff  = new TCanvas();
 TCanvas * c_interaction_xsec = new TCanvas();
 
+TH1D *h_genie_all_univ       = new TH1D("genie_all_univ", "Genie X Sec -- all;Universe;Percentage Uncertainty [%]", 10, 0, 1000); 
+TCanvas * c_genie_all_univ   = new TCanvas();
+
 
 // ------------------------------------------------------------------------------------------------------------
 bool GetTree(TFile* f, TTree* &T, TString string){
@@ -150,3 +153,23 @@ void hist_options(TCanvas* c, TH1D* msim, double axis_range, int n_uni_model, in
 
 }
 // ------------------------------------------------------------------------------------------------------------
+void make_genie_universe_plot(TCanvas* c, TH1D* h, const char *print_name ){
+        c->cd();
+        std::vector<int> universe = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900};
+	std::vector<double> uncertainty = { 5.68, 4.98, 4.70, 4.73, 4.60, 4.63, 4.63, 4.62, 4.68, 4.62};
+
+        // Fill the histogram
+	for (unsigned i =0; i < universe.size(); i++)
+		h->Fill(universe[i], uncertainty[i] );
+	
+
+	h->SetLineWidth(2);
+	h->SetLineColor(kBlack);
+
+	gPad->SetBottomMargin(0.1);
+	h->Draw("hist");
+
+        c->Print(print_name);
+
+
+}

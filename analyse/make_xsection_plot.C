@@ -240,6 +240,11 @@ void make_xsection_plot(){
 	hist_options(c_interaction_eff,  hCV_interaction_eff,  5, n_uni_model, n_uni_reinteractions, "plots/interaction_eff.pdf" ); // Interaction_eff
 	hist_options(c_interaction_xsec, hCV_interaction_xsec, 5, n_uni_model, n_uni_reinteractions, "plots/interaction_xsec.pdf"); // Interaction_xsec
 	
+
+	make_genie_universe_plot(c_genie_all_univ, h_genie_all_univ, "xsec_uncertainty_vs_universe.pdf" );
+
+	
+
 }
 // END MAIN
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
