@@ -13,6 +13,8 @@
 #include "TStyle.h"
 #include "TColor.h"
 #include "TLine.h"
+#include "TGraph.h"
+#include "TLatex.h"
 
 #include <iostream>
 #include <fstream>
@@ -63,6 +65,10 @@ void make_xsection_plot(){
 	int n_uni_genie, n_uni_model, n_uni_reinteractions;
 
 	int num_interactions{1}, num_genie{1};
+
+	std::vector<double> max_genie_unisim_vec;
+	std::vector<double> reinteraction_vec;
+	double  genie_all{0.}, reinteractions_all{0.}, q0q3_ccqe{0.}, q0q3_ccmec{0.};
 
 	// ----------------------
 	//		Event loop
@@ -139,46 +145,33 @@ void make_xsection_plot(){
 				
 				// Multisim
 				if (Gen -> mode == "multisim"){	
-					hCV_genie_Sig->Fill(Sig -> label.c_str(), 0);
-					hCV_genie_Sig->SetBinError(num_genie, 100 * Err_Sig / CV_Sig );
 
-					hCV_genie_Bkg->Fill(Bkg -> label.c_str(), 0);
-					hCV_genie_Bkg->SetBinError(num_genie, 100 * Err_Bkg / CV_Bkg );
+					if (Sig -> label != "All" && Sig -> label != "qevec"){
+						hCV_genie_Sig->Fill(Sig -> label.c_str(), 0);
+						hCV_genie_Sig->SetBinError(num_genie, 100 * Err_Sig / CV_Sig );
 
-					hCV_genie_Gen->Fill(Gen -> label.c_str(), 0);
-					hCV_genie_Gen->SetBinError(num_genie, 100 * Err_Gen / CV_Gen );
+						hCV_genie_Bkg->Fill(Bkg -> label.c_str(), 0);
+						hCV_genie_Bkg->SetBinError(num_genie, 100 * Err_Bkg / CV_Bkg );
 
-					hCV_genie_eff->Fill(eff -> label.c_str(), 0);
-					hCV_genie_eff->SetBinError(num_genie, 100 * Err_eff / CV_eff );
+						hCV_genie_Gen->Fill(Gen -> label.c_str(), 0);
+						hCV_genie_Gen->SetBinError(num_genie, 100 * Err_Gen / CV_Gen );
 
-					hCV_genie_xsec->Fill(xsec -> label.c_str(), 0);
-					hCV_genie_xsec->SetBinError(num_genie, 100 * Err_xsec / CV_xsec );
-					num_genie++;
+						hCV_genie_eff->Fill(eff -> label.c_str(), 0);
+						hCV_genie_eff->SetBinError(num_genie, 100 * Err_eff / CV_eff );
 
-					// If "all" case, there is no unisim, so fill a blank to align the histograms properly
-					if (Sig -> label == "All"){
-						hCV_genie_Sig_p1sig->Fill(Sig -> label.c_str(), 0);
-						hCV_genie_Sig_m1sig->Fill(Sig -> label.c_str(), 0);
-
-						hCV_genie_Bkg_p1sig->Fill(Bkg -> label.c_str(), 0);
-						hCV_genie_Bkg_m1sig->Fill(Bkg -> label.c_str(), 0);
-
-						hCV_genie_Gen_p1sig->Fill(Gen -> label.c_str(), 0);
-						hCV_genie_Gen_m1sig->Fill(Gen -> label.c_str(), 0);
-
-						hCV_genie_eff_p1sig->Fill(eff -> label.c_str(), 0);
-						hCV_genie_eff_m1sig->Fill(eff -> label.c_str(), 0);
-
-						hCV_genie_xsec_p1sig->Fill(xsec -> label.c_str(),0);
-						hCV_genie_xsec_m1sig->Fill(xsec -> label.c_str(),0);
-
+						hCV_genie_xsec->Fill(xsec -> label.c_str(), 0);
+						hCV_genie_xsec->SetBinError(num_genie, 100 * Err_xsec / CV_xsec );
+						num_genie++;
 					}
+
+					if (Sig -> label == "All") genie_all = 100 * Err_xsec / CV_xsec;
+
 				}
 				// Unisim
 				else {
 
 					// We dont have qema and qevec for multisim yet so skip for now
-					// if (Sig -> label == "qema" || Sig -> label == "qevec") continue;
+					if ( Sig -> label == "qevec") continue;
 
 					hCV_genie_Sig_p1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_p1sig / CV_Sig);
 					hCV_genie_Sig_m1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_m1sig / CV_Sig);
@@ -194,6 +187,11 @@ void make_xsection_plot(){
 
 					hCV_genie_xsec_p1sig->Fill(xsec -> label.c_str(), 100 * Err_xsec_p1sig / CV_xsec);
 					hCV_genie_xsec_m1sig->Fill(xsec -> label.c_str(), 100 * Err_xsec_m1sig / CV_xsec);
+
+					// Get the max from each of these to add to a vector
+					double max =  GetMax(100 * Err_xsec_m1sig / CV_xsec, 100 * Err_xsec_p1sig / CV_xsec);
+					if (Sig -> label != "all") max_genie_unisim_vec.push_back( max); 
+					else std::cout << "skipping adding all" << std::endl;
 
 				}
 
@@ -219,6 +217,10 @@ void make_xsection_plot(){
 				hCV_interaction_xsec->SetBinError(num_interactions, 100 * Err_xsec / CV_xsec );
 				num_interactions++;
 
+				if (Sig -> label == "reinteractions_piminus" || Sig -> label == "reinteractions_piplus" || Sig -> label == "reinteractions_proton") reinteraction_vec.push_back( 100 * Err_xsec / CV_xsec);
+				if (Sig -> label == "reinteractions_all") reinteractions_all = 100 * Err_xsec / CV_xsec; 
+				if (Sig -> label == "q0q3_ccqe")          q0q3_ccqe          = 100 * Err_xsec / CV_xsec; 
+				if (Sig -> label == "q0q3_ccmec")         q0q3_ccmec         = 100 * Err_xsec / CV_xsec; 
 			}
 
 	} // End loop over labels
@@ -240,10 +242,17 @@ void make_xsection_plot(){
 	hist_options(c_interaction_eff,  hCV_interaction_eff,  5, n_uni_model, n_uni_reinteractions, "plots/interaction_eff.pdf" ); // Interaction_eff
 	hist_options(c_interaction_xsec, hCV_interaction_xsec, 5, n_uni_model, n_uni_reinteractions, "plots/interaction_xsec.pdf"); // Interaction_xsec
 	
+	// Make the plot of genie cross section uncertainty vs number of universes
+	make_genie_universe_plot(c_genie_all_univ, g_genie_all_univ, "plots/xsec_uncertainty_vs_universe.pdf" );
 
-	make_genie_universe_plot(c_genie_all_univ, h_genie_all_univ, "xsec_uncertainty_vs_universe.pdf" );
+	std::pair<std::string, double> genie_all_pair("genie all", genie_all);
+	std::pair<std::string, double> genie_indiv("genie indiv", Quadrature(max_genie_unisim_vec));
+	std::pair<std::string, double> ccmec("q0q3 ccmec", q0q3_ccmec);
+	std::pair<std::string, double> ccqe("q0q3 qe", q0q3_ccqe);
+	std::pair<std::string, double> reinteractions_all_pair("reinteractions all", reinteractions_all);
+	std::pair<std::string, double> reinteractions_indiv("reinteractions indiv", Quadrature(reinteraction_vec));
 
-	
+	Make_uncertainty_plot(c_uncertainties, h_uncertainties_1, h_uncertainties_2, "plots/xsec_uncertainties_all.pdf", genie_all_pair, genie_indiv, ccmec, ccqe, reinteractions_all_pair, reinteractions_indiv,n_uni_model, n_uni_reinteractions, n_uni_genie );
 
 }
 // END MAIN
