@@ -30,7 +30,7 @@ void make_xsection_plot(){
 	TTree* xsectree;
 
 	// First read in the ttree and loop over the entries
-	bool boolfile  = GetFile(f , "../NuMIEventWeight.root"); if (boolfile == false) gSystem->Exit(0); // File with the weights
+	bool boolfile  = GetFile(f , "NuMIEventWeight.root"); if (boolfile == false) gSystem->Exit(0); // File with the weights
 	bool booltree  = GetTree(f, xsectree ,"microboonewvtof/XSectionTree"); // Sig, Bkg, Gen, eff, xsec
 	
 	Sig  = new Event_List;
@@ -146,7 +146,7 @@ void make_xsection_plot(){
 				// Multisim
 				if (Gen -> mode == "multisim"){	
 
-					if (Sig -> label != "All" && Sig -> label != "qevec"){
+					if (Sig -> label != "All" && Sig -> label != "qevec" && Sig -> label != "NC"){
 						hCV_genie_Sig->Fill(Sig -> label.c_str(), 0);
 						hCV_genie_Sig->SetBinError(num_genie, 100 * Err_Sig / CV_Sig );
 
@@ -171,27 +171,28 @@ void make_xsection_plot(){
 				else {
 
 					// We dont have qema and qevec for multisim yet so skip for now
-					if ( Sig -> label == "qevec") continue;
+					if ( Sig -> label != "qevec" && Sig -> label != "NC" ){
 
-					hCV_genie_Sig_p1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_p1sig / CV_Sig);
-					hCV_genie_Sig_m1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_m1sig / CV_Sig);
+						hCV_genie_Sig_p1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_p1sig / CV_Sig);
+						hCV_genie_Sig_m1sig->Fill(Sig -> label.c_str(), 100 * Err_Sig_m1sig / CV_Sig);
 
-					hCV_genie_Bkg_p1sig->Fill(Bkg -> label.c_str(), 100 * Err_Bkg_p1sig / CV_Bkg);
-					hCV_genie_Bkg_m1sig->Fill(Bkg -> label.c_str(), 100 * Err_Bkg_m1sig / CV_Bkg);
+						hCV_genie_Bkg_p1sig->Fill(Bkg -> label.c_str(), 100 * Err_Bkg_p1sig / CV_Bkg);
+						hCV_genie_Bkg_m1sig->Fill(Bkg -> label.c_str(), 100 * Err_Bkg_m1sig / CV_Bkg);
 
-					hCV_genie_Gen_p1sig->Fill(Gen -> label.c_str(), 100 * Err_Gen_p1sig / CV_Gen);
-					hCV_genie_Gen_m1sig->Fill(Gen -> label.c_str(), 100 * Err_Gen_m1sig / CV_Gen);
+						hCV_genie_Gen_p1sig->Fill(Gen -> label.c_str(), 100 * Err_Gen_p1sig / CV_Gen);
+						hCV_genie_Gen_m1sig->Fill(Gen -> label.c_str(), 100 * Err_Gen_m1sig / CV_Gen);
 
-					hCV_genie_eff_p1sig->Fill(eff -> label.c_str(), 100 * Err_eff_p1sig / CV_eff);
-					hCV_genie_eff_m1sig->Fill(eff -> label.c_str(), 100 * Err_eff_m1sig / CV_eff);
+						hCV_genie_eff_p1sig->Fill(eff -> label.c_str(), 100 * Err_eff_p1sig / CV_eff);
+						hCV_genie_eff_m1sig->Fill(eff -> label.c_str(), 100 * Err_eff_m1sig / CV_eff);
 
-					hCV_genie_xsec_p1sig->Fill(xsec -> label.c_str(), 100 * Err_xsec_p1sig / CV_xsec);
-					hCV_genie_xsec_m1sig->Fill(xsec -> label.c_str(), 100 * Err_xsec_m1sig / CV_xsec);
+						hCV_genie_xsec_p1sig->Fill(xsec -> label.c_str(), 100 * Err_xsec_p1sig / CV_xsec);
+						hCV_genie_xsec_m1sig->Fill(xsec -> label.c_str(), 100 * Err_xsec_m1sig / CV_xsec);
 
-					// Get the max from each of these to add to a vector
-					double max =  GetMax(100 * Err_xsec_m1sig / CV_xsec, 100 * Err_xsec_p1sig / CV_xsec);
-					if (Sig -> label != "all") max_genie_unisim_vec.push_back( max); 
-					else std::cout << "skipping adding all" << std::endl;
+						// Get the max from each of these to add to a vector
+						double max =  GetMax(100 * Err_xsec_m1sig / CV_xsec, 100 * Err_xsec_p1sig / CV_xsec);
+						if (Sig -> label != "all") max_genie_unisim_vec.push_back( max); 
+						else std::cout << "skipping adding all" << std::endl;
+					}
 
 				}
 
@@ -230,10 +231,10 @@ void make_xsection_plot(){
 
 	// Plot the genie histograms
 	hist_options(c_genie_Sig,  hCV_genie_Sig,  hCV_genie_Sig_p1sig,  hCV_genie_Sig_m1sig,  15, n_uni_genie,  "plots/genie_sig.pdf"  );  // genie_sig
-	hist_options(c_genie_Bkg,  hCV_genie_Bkg,  hCV_genie_Bkg_p1sig,  hCV_genie_Bkg_m1sig,  15, n_uni_genie,  "plots/genie_bkg.pdf"  );  // genie_bkg
+	hist_options(c_genie_Bkg,  hCV_genie_Bkg,  hCV_genie_Bkg_p1sig,  hCV_genie_Bkg_m1sig,  10, n_uni_genie,  "plots/genie_bkg.pdf"  );  // genie_bkg
 	hist_options(c_genie_Gen,  hCV_genie_Gen,  hCV_genie_Gen_p1sig,  hCV_genie_Gen_m1sig,  15, n_uni_genie,  "plots/genie_gen.pdf"  );  // genie_gen
-	hist_options(c_genie_eff,  hCV_genie_eff,  hCV_genie_eff_p1sig,  hCV_genie_eff_m1sig,  15, n_uni_genie,  "plots/genie_eff.pdf"  );  // genie_eff
-	hist_options(c_genie_xsec, hCV_genie_xsec, hCV_genie_xsec_p1sig, hCV_genie_xsec_m1sig, 15, n_uni_genie, "plots/genie_xsec.pdf" );  // genie_xsec
+	hist_options(c_genie_eff,  hCV_genie_eff,  hCV_genie_eff_p1sig,  hCV_genie_eff_m1sig,  10, n_uni_genie,  "plots/genie_eff.pdf"  );  // genie_eff
+	hist_options(c_genie_xsec, hCV_genie_xsec, hCV_genie_xsec_p1sig, hCV_genie_xsec_m1sig, 10, n_uni_genie, "plots/genie_xsec.pdf" );  // genie_xsec
 
 	// Interactions
 	hist_options(c_interaction_Sig,  hCV_interaction_Sig,  5, n_uni_model, n_uni_reinteractions, "plots/interaction_sig.pdf" ); // Interaction_sig
